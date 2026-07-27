@@ -1,0 +1,12 @@
+Phase 3 finish — LARGE solid vs shell
+Target scale: ~26 studs on longest axis
+
+SOLID = every interior cell filled (heavy, strong-looking)
+SHELL = only exterior skin (hollow, far fewer parts)
+
+Files:
+  phase3_teapot_large_solid.io / phase3_teapot_large_shell.io
+  phase3_bunny_large_solid.io  / phase3_bunny_large_shell.io
+  phase3_hammer_large_solid.io / phase3_hammer_large_shell.io
+
+Open pairs in Studio and compare part count vs silhouette.

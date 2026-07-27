@@ -1,0 +1,59 @@
+=== LEGAL build ===
+VERDICT: PASS
+Parts checked: 9
+Collisions: 0
+Inventory:
+  - base_left: Plate 2x4 (3020.dat) color=14
+  - wall_red: Brick 2x4 (3001.dat) color=4
+  - slope_l: Slope 45 2x2 (3039.dat) color=3
+  - slope_r: Slope 45 2x2 (3039.dat) color=3
+  - base_right: Plate 2x4 (3020.dat) color=15
+  - mid_green: Brick 2x2 (3003.dat) color=2
+  - tower_1x1: Brick 1x1 (3005.dat) color=25
+  - cap_plate: Plate 1x1 (3024.dat) color=0
+  - mid_blue: Brick 2x2 (3003.dat) color=1
+STUDS: PASS - every stacked tube sits on a parent stud
+OVERALL VERDICT: PASS (collisions=0, stud_faults=0)
+
+=== ILLEGAL build ===
+VERDICT: FAIL
+Parts checked: 8
+Collisions: 3
+Inventory:
+  - base_left: Plate 2x4 (3020.dat) color=14
+  - wall_red: Brick 2x4 (3001.dat) color=4
+  - ghost_dup: Brick 2x4 (3001.dat) color=7
+  - spear: Brick 1x2 (3004.dat) color=25
+  - base_right: Plate 2x4 (3020.dat) color=15
+  - mid_green: Brick 2x2 (3003.dat) color=2
+  - between_studs: Brick 1x1 (3005.dat) color=25
+  - float_1x2: Brick 1x2 (3004.dat) color=1
+
+Overlapping pairs:
+  [1] wall_red  overlaps  ghost_dup
+      Brick 2x4 (3001.dat) @ (0, -32, 0)
+      Brick 2x4 (3001.dat) @ (0, -32, 0)
+      overlap box LDU: X[-40..40] Y[-32..-8] Z[-20..20] (size 80 x 24 x 40)
+  [2] wall_red  overlaps  spear
+      Brick 2x4 (3001.dat) @ (0, -32, 0)
+      Brick 1x2 (3004.dat) @ (20, -32, 0)
+      overlap box LDU: X[0..40] Y[-32..-8] Z[-10..10] (size 40 x 24 x 20)
+  [3] ghost_dup  overlaps  spear
+      Brick 2x4 (3001.dat) @ (0, -32, 0)
+      Brick 1x2 (3004.dat) @ (20, -32, 0)
+      overlap box LDU: X[0..40] Y[-32..-8] Z[-10..10] (size 40 x 24 x 20)
+STUDS: FAIL - 5 unsupported tube(s)
+Off-stud / unsupported tubes:
+  [1] spear (Brick 1x2) on parent base_left: tube at world XZ=(10.0, 0.0) is not on any stud of 'base_left' (Plate 2x4)
+  [2] spear (Brick 1x2) on parent base_left: tube at world XZ=(30.0, 0.0) is not on any stud of 'base_left' (Plate 2x4)
+  [3] between_studs (Brick 1x1) on parent mid_green: tube at world XZ=(60.0, 0.0) is not on any stud of 'mid_green' (Brick 2x2)
+  [4] float_1x2 (Brick 1x2) on parent base_right: tube at world XZ=(90.0, 0.0) is not on any stud of 'base_right' (Plate 2x4)
+  [5] float_1x2 (Brick 1x2) on parent base_right: tube at world XZ=(110.0, 0.0) is not on any stud of 'base_right' (Plate 2x4)
+OVERALL VERDICT: FAIL (collisions=3, stud_faults=5)
+
+Studio files:
+  LEGAL:   C:\Users\gurus\Downloads\lego\output\phase2_step2_legal.io
+  ILLEGAL: C:\Users\gurus\Downloads\lego\output\phase2_step2_illegal.io
+
+Studio does not show PASS/FAIL — read this report.
+ILLEGAL visual cues: grey twin, orange spear, blue 1x2 between stud rows, orange 1x1 sitting in the middle of the green 2x2 (between studs).

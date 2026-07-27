@@ -1,0 +1,10 @@
+Hollow sphere diameter=32.0 studs
+stats={'sections_before': 385, 'sections_after_under': 223, 'sections_after_cavity': 1, 'sections_after_staples': 1, 'sections_final': 1, 'under_plates': 145, 'cavity_plates': 127, 'staples': 2246, 'tiles': 326, 'uncovered_studs': 0, 'collisions': -1}
+mix={'3007.dat': 17, '3001.dat': 6, '3005.dat': 2204, '3009.dat': 30, '3002.dat': 1, '3010.dat': 82, '3004.dat': 240, '3622.dat': 100, '3008.dat': 45, '3003.dat': 9, '2456.dat': 1, '3958.dat': 1, '3710.dat': 9, '3034.dat': 6, '3023.dat': 501, '3460.dat': 16, '3022.dat': 19, '3623.dat': 13, '3020.dat': 4, '3021.dat': 3, '3032.dat': 2, '3666.dat': 1, '3031.dat': 1, '3070b.dat': 166, '6636.dat': 4, '3069b.dat': 72, '2431.dat': 32, '4162.dat': 12, '63864.dat': 24, '69729.dat': 4, '26603.dat': 5, '1751.dat': 5, '87079.dat': 2}
+VERDICT: PASS - single connected clutch graph
+  total parts:         3637
+  clutch edges:        4003
+  detached sections:   1
+  largest section:     3637 parts
+  singleton sections:  0
+  size histogram (desc): 3637

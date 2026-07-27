@@ -1,0 +1,6 @@
+﻿Open these two in Studio:
+
+1. sphere_full.io       — complete hollow connected sphere
+2. sphere_half_cut.io   — same model, cut in half so the cavity is visible
+
+Everything else in phase4/phase5 outputs was removed.

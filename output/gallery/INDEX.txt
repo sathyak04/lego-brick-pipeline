@@ -1,0 +1,57 @@
+GALLERY — open each .io in BrickLink Studio
+Engine verdict is also listed here (Studio will not show PASS/FAIL).
+
+===== LEGAL (should all be PASS) =====
+
+legal_01.io
+  what:    Yellow plate + red 2x4 on top (basic stack)
+  verdict: PASS
+  file:    C:\Users\gurus\Downloads\lego\output\gallery\legal_01.io
+
+legal_02.io
+  what:    White plate covered by green + blue 2x2
+  verdict: PASS
+  file:    C:\Users\gurus\Downloads\lego\output\gallery\legal_02.io
+
+legal_03.io
+  what:    Red 2x2 + orange 1x1 on a corner stud + black plate cap
+  verdict: PASS
+  file:    C:\Users\gurus\Downloads\lego\output\gallery\legal_03.io
+
+legal_04.io
+  what:    Red 2x4 with two blue slopes flush on top
+  verdict: PASS
+  file:    C:\Users\gurus\Downloads\lego\output\gallery\legal_04.io
+
+legal_05.io
+  what:    Mini scene: roofed wall + side tower on corner stud
+  verdict: PASS
+  file:    C:\Users\gurus\Downloads\lego\output\gallery\legal_05.io
+
+===== ILLEGAL (should all be FAIL) =====
+
+illegal_01.io
+  what:    OFF-STUD: orange 1x1 centered on green 2x2 (between 4 studs)
+  verdict: FAIL - 1 off-stud: between
+  file:    C:\Users\gurus\Downloads\lego\output\gallery\illegal_01.io
+
+illegal_02.io
+  what:    OFF-STUD: blue 1x2 centered on plate (between stud rows)
+  verdict: FAIL - 2 off-stud: straddle, straddle
+  file:    C:\Users\gurus\Downloads\lego\output\gallery\illegal_02.io
+
+illegal_03.io
+  what:    OFF-STUD: red 2x4 shifted half a stud on yellow plate
+  verdict: FAIL - 8 off-stud: slid, slid, slid, slid, slid, slid, slid, slid
+  file:    C:\Users\gurus\Downloads\lego\output\gallery\illegal_03.io
+
+illegal_04.io
+  what:    COLLISION: grey 2x4 fused through red 2x4 (same slot)
+  verdict: FAIL - 1 collision(s): red|ghost
+  file:    C:\Users\gurus\Downloads\lego\output\gallery\illegal_04.io
+
+illegal_05.io
+  what:    COLLISION: orange jab into red + black 2x2 sunk halfway
+  verdict: FAIL - 3 collision(s): plate|sink, wall|jab, wall|sink; 2 off-stud: jab, jab
+  file:    C:\Users\gurus\Downloads\lego\output\gallery\illegal_05.io
+
