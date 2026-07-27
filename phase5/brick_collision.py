@@ -91,6 +91,51 @@ class CollisionWorld:
         self.add(candidate)
         return True
 
+    def truncate(self, n: int) -> None:
+        """Keep only the first n bricks/boxes."""
+        self.bricks = self.bricks[:n]
+        self.boxes = self.boxes[:n]
+
+
+def strip_colliding_extras(
+    shell: list[Brick], extras: list[Brick]
+) -> tuple[list[Brick], int]:
+    """Drop plate/tile extras that fuse into other parts.
+
+    Brick-kind staples (1x1 fills) are kept if their stud cell is unique;
+    fused *strips* are what we strip. Shell is never removed.
+    """
+    from catalog import get_part  # local to avoid cycles at import
+
+    index = CollisionWorld(shell)
+    kept: list[Brick] = []
+    removed = 0
+    bricks: list[Brick] = []
+    strips: list[Brick] = []
+    for b in extras:
+        kind = get_part(b.part_id).kind
+        if kind in ("plate", "tile"):
+            strips.append(b)
+        else:
+            bricks.append(b)
+
+    # Staples first — reject only true AABB overlap with shell/earlier staples
+    for b in bricks:
+        if index.collides(b):
+            removed += 1
+            continue
+        index.add(b)
+        kept.append(b)
+
+    # Plates/tiles must not fuse
+    for b in strips:
+        if index.collides(b):
+            removed += 1
+            continue
+        index.add(b)
+        kept.append(b)
+    return kept, removed
+
 
 def collides_any(candidate: Brick, existing: list[Brick]) -> bool:
     """True if candidate volume intersects any existing part."""

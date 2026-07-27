@@ -23,7 +23,12 @@ from catalog import BRICK_H, PLATE_H, STUD, packing_templates  # noqa: E402
 from export_io import Brick  # noqa: E402
 from greedy import IDENTITY, Placement, placements_to_bricks  # noqa: E402
 from connectivity import check_connectivity  # noqa: E402
-from brick_collision import CollisionWorld, collides_any, count_collisions  # noqa: E402
+from brick_collision import (  # noqa: E402
+    CollisionWorld,
+    collides_any,
+    count_collisions,
+    strip_colliding_extras,
+)
 
 
 @dataclass(frozen=True)
@@ -794,33 +799,49 @@ def _plate_1x2_on_pair(
     c0: tuple[int, int, int],
     c1: tuple[int, int, int],
     plate_color: int,
+    *,
+    index: CollisionWorld | None = None,
 ) -> Brick | None:
-    """1x2 plate on two same-layer orthogonally adjacent cells, or None."""
+    """1x2 plate on two same-layer orthogonally adjacent cells, or None.
+
+    Tries flush on the brick top, then one plate-height above if that collides.
+    """
     if c0[1] != c1[1]:
         return None
     yaw90 = (0.0, 0.0, 1.0, 0.0, 1.0, 0.0, -1.0, 0.0, 0.0)
+    y = c0[1]
+    origins = (_brick_top_y(y) - PLATE_H, _brick_top_y(y) - 2 * PLATE_H)
+    cand: Brick | None = None
     if c0[2] == c1[2] and abs(c0[0] - c1[0]) == 1:
-        return _make_part(
-            "3023.dat",
-            plate_color,
-            min(c0[0], c1[0]),
-            c0[2],
-            2,
-            1,
-            IDENTITY,
-            _brick_top_y(c0[1]) - PLATE_H,
-        )
+        for origin_y in origins:
+            cand = _make_part(
+                "3023.dat",
+                plate_color,
+                min(c0[0], c1[0]),
+                c0[2],
+                2,
+                1,
+                IDENTITY,
+                origin_y,
+            )
+            if index is None or not index.collides(cand):
+                return cand
+        return None
     if c0[0] == c1[0] and abs(c0[2] - c1[2]) == 1:
-        return _make_part(
-            "3023.dat",
-            plate_color,
-            c0[0],
-            min(c0[2], c1[2]),
-            1,
-            2,
-            yaw90,
-            _brick_top_y(c0[1]) - PLATE_H,
-        )
+        for origin_y in origins:
+            cand = _make_part(
+                "3023.dat",
+                plate_color,
+                c0[0],
+                min(c0[2], c1[2]),
+                1,
+                2,
+                yaw90,
+                origin_y,
+            )
+            if index is None or not index.collides(cand):
+                return cand
+        return None
     return None
 
 
@@ -1006,17 +1027,34 @@ def _staple_air_column_gaps(
     candidates.sort()
 
     added: list[Brick] = []
+    index = CollisionWorld(world)
     for gap, ix, iz, a, b, sa, sb in candidates:
         if find(sa) == find(sb):
             continue
         snap_w, snap_a = len(world), len(added)
         snap_v = set(staple_vox)
+        snap_boxes = len(index.boxes)
+        ok = True
+        occ_now = set(vsec) | set(staple_vox)
         for iy in range(a + 1, b):
             cell = (ix, iy, iz)
+            if cell in occ_now:
+                ok = False
+                break
             brick = _make_1x1_brick(staple_color, ix, iy, iz)
             world.append(brick)
+            index.add(brick)
             added.append(brick)
             staple_vox.add(cell)
+            occ_now.add(cell)
+        if not ok:
+            while len(world) > snap_w:
+                world.pop()
+            del added[snap_a:]
+            staple_vox.clear()
+            staple_vox.update(snap_v)
+            index.truncate(snap_boxes)
+            continue
         after = check_connectivity(world).section_count
         if after < before:
             union(sa, sb)
@@ -1030,6 +1068,7 @@ def _staple_air_column_gaps(
         del added[snap_a:]
         staple_vox.clear()
         staple_vox.update(snap_v)
+        index.truncate(snap_boxes)
     return added
 
 
@@ -1106,23 +1145,37 @@ def _staple_nearest_air_path(
     if not fill:
         return []
 
+    index = CollisionWorld(world)
     snap = len(world)
     added: list[Brick] = []
+    ok = True
+    occ_now = set(vsec) | set(staple_vox)
     for fx, fy, fz in fill:
+        cell = (fx, fy, fz)
+        if cell in occ_now:
+            ok = False
+            break
         brick = _make_1x1_brick(staple_color, fx, fy, fz)
         world.append(brick)
+        index.add(brick)
         added.append(brick)
-        staple_vox.add((fx, fy, fz))
-    chain = [a] + fill + [b]
-    for i in range(len(chain) - 1):
-        plate = _plate_1x2_on_pair(chain[i], chain[i + 1], plate_color)
-        if plate is not None:
+        staple_vox.add(cell)
+        occ_now.add(cell)
+    if ok:
+        chain = [a] + fill + [b]
+        for i in range(len(chain) - 1):
+            plate = _plate_1x2_on_pair(
+                chain[i], chain[i + 1], plate_color, index=index
+            )
+            if plate is None:
+                continue
             world.append(plate)
+            index.add(plate)
             added.append(plate)
-    after = check_connectivity(world).section_count
-    if after < before:
-        print(f"    nearest-air path +{len(fill)} -> {after} sections")
-        return added
+        after = check_connectivity(world).section_count
+        if after < before:
+            print(f"    nearest-air path +{len(fill)} -> {after} sections")
+            return added
     while len(world) > snap:
         world.pop()
     for fx, fy, fz in fill:
@@ -1226,40 +1279,42 @@ def _join_nearby_components(
         return []
 
     added: list[Brick] = []
-    # Cap attempts so this can't run away on hard geometry
-    for _attempt in range(24):
+    index = CollisionWorld(world)
+    failed_small: set[int] = set()
+    for _attempt in range(400):
         if before <= 1 or len(by_sec) < 2:
             break
         largest = max(by_sec, key=lambda s: len(by_sec[s]))
         goals = by_sec[largest]
         goal_set = set(goals)
-        small = min(
-            (s for s in by_sec if s != largest),
-            key=lambda s: len(by_sec[s]),
-        )
+        candidates = [s for s in by_sec if s != largest and s not in failed_small]
+        if not candidates:
+            print(f"    nearby join stuck at {before} sections")
+            break
+        small = min(candidates, key=lambda s: len(by_sec[s]))
         members = by_sec[small]
 
         # Same-layer contact: just a 1x2 plate, no fill
         contact_plate = None
-        contact_pair = None
         for a in members:
             ax, ay, az = a
             for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
                 b = (ax + dx, ay, az + dz)
                 if b in goal_set:
-                    contact_plate = _plate_1x2_on_pair(a, b, plate_color)
-                    if contact_plate is not None:
-                        contact_pair = (a, b)
+                    cand = _plate_1x2_on_pair(a, b, plate_color, index=index)
+                    if cand is not None:
+                        contact_plate = cand
                         break
             if contact_plate is not None:
                 break
         if contact_plate is not None:
-            snap = len(world)
             world.append(contact_plate)
+            index.add(contact_plate)
             new_sec = check_connectivity(world).section_count
             if new_sec < before:
                 added.append(contact_plate)
                 before = new_sec
+                failed_small.clear()
                 print(f"    nearby plate -> {new_sec} sections")
                 if before <= 1:
                     break
@@ -1277,39 +1332,83 @@ def _join_nearby_components(
                     by_sec.setdefault(s, []).append(cell)
                 continue
             world.pop()
+            index.truncate(len(index.bricks) - 1)
 
         fill, a, b = _bfs_fill_path(members[:80], goals, free, max_dist=max_dist)
         if not fill or a is None or b is None:
-            others = [s for s in by_sec if s != largest and s != small]
-            if not others:
-                print(f"    nearby join stuck at {before} sections")
-                break
-            small = min(others, key=lambda s: len(by_sec[s]))
-            members = by_sec[small]
-            fill, a, b = _bfs_fill_path(
-                members[:80], goals, free, max_dist=max_dist
-            )
+            # Fallback: short air/empty L-path to nearest goal cell
+            best = None
+            best_d = 10**9
+            for aa in members[:40]:
+                for bb in goals[:: max(1, len(goals) // 80)]:
+                    d = abs(aa[0] - bb[0]) + abs(aa[1] - bb[1]) + abs(aa[2] - bb[2])
+                    if 1 < d < best_d:
+                        best_d = d
+                        best = (aa, bb)
+            fill, a, b = [], None, None
+            if best is not None and best_d <= max_dist:
+                a, b = best
+                occ = set(vsec) | set(staple_vox)
+
+                def air_path(order: str) -> list[tuple[int, int, int]]:
+                    cells: list[tuple[int, int, int]] = []
+                    x, y, z = a
+                    for axis in order:
+                        target = b[{"x": 0, "y": 1, "z": 2}[axis]]
+                        while {"x": x, "y": y, "z": z}[axis] != target:
+                            if axis == "x":
+                                x += 1 if b[0] > x else -1
+                            elif axis == "y":
+                                y += 1 if b[1] > y else -1
+                            else:
+                                z += 1 if b[2] > z else -1
+                            cell = (x, y, z)
+                            if cell == b:
+                                return cells
+                            if cell in occ:
+                                return []
+                            cells.append(cell)
+                    return cells
+
+                fill = air_path("yxz") or air_path("xyz") or air_path("xzy")
             if not fill or a is None or b is None:
-                print(f"    nearby join stuck at {before} sections")
-                break
+                failed_small.add(small)
+                continue
 
         snap = len(world)
+        snap_idx = len(index.bricks)
+        ok = True
+        # 1x1 staples: voxel occupancy only (AABB false-positives block real free cells)
+        occ_now = set(vsec) | set(staple_vox)
         for fx, fy, fz in fill:
-            world.append(_make_1x1_brick(staple_color, fx, fy, fz))
-            free.discard((fx, fy, fz))
+            cell = (fx, fy, fz)
+            if cell in occ_now:
+                ok = False
+                break
+            brick = _make_1x1_brick(staple_color, fx, fy, fz)
+            world.append(brick)
+            index.add(brick)  # track for later plate checks
+            occ_now.add(cell)
+            free.discard(cell)
 
-        chain = [a] + fill + [b]
-        for i in range(len(chain) - 1):
-            plate = _plate_1x2_on_pair(chain[i], chain[i + 1], plate_color)
-            if plate is not None:
+        if ok:
+            chain = [a] + fill + [b]
+            for i in range(len(chain) - 1):
+                plate = _plate_1x2_on_pair(
+                    chain[i], chain[i + 1], plate_color, index=index
+                )
+                if plate is None:
+                    continue
                 world.append(plate)
+                index.add(plate)
 
-        new_sec = check_connectivity(world).section_count
-        if new_sec < before:
+        new_sec = check_connectivity(world).section_count if ok else before
+        if ok and new_sec < before:
             for fx, fy, fz in fill:
                 staple_vox.add((fx, fy, fz))
             added.extend(world[snap:])
             before = new_sec
+            failed_small.clear()
             print(f"    nearby path +{len(fill)} -> {new_sec} sections")
             if before <= 1:
                 break
@@ -1328,9 +1427,10 @@ def _join_nearby_components(
         else:
             while len(world) > snap:
                 world.pop()
+            index.truncate(snap_idx)
             for fx, fy, fz in fill:
                 free.add((fx, fy, fz))
-            break
+            failed_small.add(small)
     return added
 
 
@@ -1364,15 +1464,20 @@ def finish_shell_surface(
 
     if solid is not None:
         extras = list(under)
-        # One-cell UPWARD thicken only — no AABB scan (cells are free solid)
+        # One-cell UPWARD thicken — skip any cell that would collide
         shell_vox = _placement_voxels(placements)
         free = solid - shell_vox
+        thicken_index = CollisionWorld(shell + under)
         thicken_bricks: list[Brick] = []
         for ix, iy, iz in shell_vox:
             above = (ix, iy + 1, iz)
             if above not in free:
                 continue
-            thicken_bricks.append(_make_1x1_brick(staple_color, ix, iy + 1, iz))
+            brick = _make_1x1_brick(staple_color, ix, iy + 1, iz)
+            if thicken_index.collides(brick):
+                continue
+            thicken_index.add(brick)
+            thicken_bricks.append(brick)
             staple_vox.add(above)
             free.discard(above)
         if thicken_bricks:
@@ -1438,7 +1543,8 @@ def finish_shell_surface(
                 improved = True
                 cur = sec_under
 
-            if not improved:
+            cur_after = check_connectivity(shell + extras + staples).section_count
+            if cur_after > 1:
                 near = _join_nearby_components(
                     placements,
                     extras + staples,
@@ -1446,7 +1552,7 @@ def finish_shell_surface(
                     staple_color=staple_color,
                     plate_color=plate_color,
                     staple_vox=staple_vox,
-                    max_dist=48,
+                    max_dist=64,
                 )
                 if near:
                     staples.extend(near)
@@ -1470,7 +1576,7 @@ def finish_shell_surface(
                             extras + staples,
                             staple_color=staple_color,
                             staple_vox=staple_vox,
-                            max_gap=10,
+                            max_gap=12,
                         )
                         if air:
                             staples.extend(air)
@@ -1482,7 +1588,7 @@ def finish_shell_surface(
                                 staple_color=staple_color,
                                 plate_color=plate_color,
                                 staple_vox=staple_vox,
-                                max_dist=16,
+                                max_dist=28,
                             )
                             if last:
                                 staples.extend(last)
@@ -1492,11 +1598,53 @@ def finish_shell_surface(
             new_sec = check_connectivity(shell + extras + staples).section_count
             if new_sec >= prev_sec:
                 stagnant += 1
-                if stagnant >= 3 or not improved:
+                if stagnant >= 5 or not improved:
                     break
             else:
                 stagnant = 0
                 prev_sec = new_sec
+
+        # Extra collision-safe reconnect pass
+        for _fin in range(60):
+            cur = check_connectivity(shell + under + cavity + staples).section_count
+            if cur <= 1:
+                break
+            near = _join_nearby_components(
+                placements,
+                under + cavity + staples,
+                solid,
+                staple_color=staple_color,
+                plate_color=plate_color,
+                staple_vox=staple_vox,
+                max_dist=64,
+            )
+            if near:
+                staples.extend(near)
+                print(f"    final nearby +{len(near)}")
+                continue
+            air = _staple_air_column_gaps(
+                placements,
+                under + cavity + staples,
+                staple_color=staple_color,
+                staple_vox=staple_vox,
+                max_gap=12,
+            )
+            if air:
+                staples.extend(air)
+                continue
+            last = _staple_nearest_air_path(
+                placements,
+                under + cavity + staples,
+                staple_color=staple_color,
+                plate_color=plate_color,
+                staple_vox=staple_vox,
+                max_dist=28,
+            )
+            if last:
+                staples.extend(last)
+                print(f"    final nearest-air +{len(last)}")
+                continue
+            break
 
     tiles, uncovered = cover_exterior_with_tiles(
         placements,
@@ -1516,7 +1664,80 @@ def finish_shell_surface(
         cavity.extend(gap_plates)
         print(f"    gap-fill strips +{len(gap_plates)}")
 
-    all_bricks = shell + under + cavity + staples + tiles
+    # Final safety: drop any extras that still fuse into other parts
+    cleaned, stripped = strip_colliding_extras(
+        shell, under + cavity + staples + tiles
+    )
+    if stripped:
+        print(f"    stripped {stripped} colliding extras")
+
+    # Rebuild staple voxel set from whatever 1x1s survived the strip
+    shell_vox = _placement_voxels(placements)
+    staple_vox = set()
+    for b in cleaned:
+        cell = _1x1_brick_voxel(b)
+        if cell is not None and cell not in shell_vox:
+            staple_vox.add(cell)
+
+    # Reconnect after strip (collision-safe only)
+    if solid is not None:
+        extras = list(cleaned)
+        for _fin in range(80):
+            cur = check_connectivity(shell + extras).section_count
+            if cur <= 1:
+                break
+            near = _join_nearby_components(
+                placements,
+                extras,
+                solid,
+                staple_color=staple_color,
+                plate_color=plate_color,
+                staple_vox=staple_vox,
+                max_dist=64,
+            )
+            if near:
+                kept, _r = strip_colliding_extras(shell + extras, near)
+                if kept:
+                    extras.extend(kept)
+                    print(f"    post-strip nearby +{len(kept)}")
+                    continue
+            air = _staple_air_column_gaps(
+                placements,
+                extras,
+                staple_color=staple_color,
+                staple_vox=staple_vox,
+                max_gap=12,
+            )
+            if air:
+                kept, _r = strip_colliding_extras(shell + extras, air)
+                if kept:
+                    extras.extend(kept)
+                    continue
+            last = _staple_nearest_air_path(
+                placements,
+                extras,
+                staple_color=staple_color,
+                plate_color=plate_color,
+                staple_vox=staple_vox,
+                max_dist=28,
+            )
+            if last:
+                kept, _r = strip_colliding_extras(shell + extras, last)
+                if kept:
+                    extras.extend(kept)
+                    print(f"    post-strip nearest-air +{len(kept)}")
+                    continue
+            break
+        cleaned = extras
+
+    all_bricks = shell + cleaned
+    # One more strip in case reconnect added overlaps
+    cleaned2, stripped2 = strip_colliding_extras(shell, cleaned)
+    if stripped2:
+        print(f"    stripped {stripped2} post-reconnect collisions")
+        cleaned = cleaned2
+        all_bricks = shell + cleaned
+
     sec2 = check_connectivity(all_bricks).section_count
     cols = count_collisions(all_bricks)
 
@@ -1533,6 +1754,7 @@ def finish_shell_surface(
         "uncovered_studs": uncovered,
         "collisions": cols,
         "gap_fill_plates": len(gap_plates),
+        "stripped_collisions": stripped + stripped2,
     }
     return all_bricks, stats
 
