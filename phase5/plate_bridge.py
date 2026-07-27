@@ -23,7 +23,7 @@ from catalog import BRICK_H, PLATE_H, STUD, packing_templates  # noqa: E402
 from export_io import Brick  # noqa: E402
 from greedy import IDENTITY, Placement, placements_to_bricks  # noqa: E402
 from connectivity import check_connectivity  # noqa: E402
-from brick_collision import collides_any, count_collisions  # noqa: E402
+from brick_collision import CollisionWorld, collides_any, count_collisions  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -198,7 +198,7 @@ def cover_exterior_with_tiles(
     to_cover = exterior_exposed_cells(placements, solid)
     tiles: list[Brick] = []
     covered: dict[int, set[tuple[int, int]]] = {}
-    world = list(existing)
+    index = CollisionWorld(existing)
 
     def try_tile(
         part_id: str,
@@ -215,7 +215,7 @@ def cover_exterior_with_tiles(
             _brick_top_y(iy) - 2 * PLATE_H,
         ):
             cand = _make_part(part_id, tile_color, ix, iz, ww, dd, rot, origin_y)
-            if not collides_any(cand, world):
+            if not index.collides(cand):
                 return cand
         return None
 
@@ -243,7 +243,7 @@ def cover_exterior_with_tiles(
                     if cand is None:
                         continue
                     tiles.append(cand)
-                    world.append(cand)
+                    index.add(cand)
                     used |= cells
                     remaining -= cells
 
@@ -252,7 +252,7 @@ def cover_exterior_with_tiles(
             if cand is None:
                 continue
             tiles.append(cand)
-            world.append(cand)
+            index.add(cand)
             used.add((ix, iz))
             remaining.discard((ix, iz))
 
@@ -269,8 +269,10 @@ def _plate_bridge_round(
     free_by_layer: dict[int, dict[tuple[int, int], int]],
     used: dict[int, set[tuple[int, int]]],
     world: list[Brick],
+    index: CollisionWorld,
     origin_y_fn,
     plate_color: int,
+    require_multi_section: bool = True,
 ) -> tuple[list[Brick], int]:
     plates: list[Brick] = []
     placed = 0
@@ -297,15 +299,16 @@ def _plate_bridge_round(
                         continue
                     if cells & layer_used:
                         continue
-                    if len({free[c] for c in cells}) < 2:
+                    if require_multi_section and len({free[c] for c in cells}) < 2:
                         continue
                     cand = _make_part(
                         tmpl.part_id, plate_color, ix, iz, ww, dd, tmpl.rot, origin_y
                     )
-                    # Skip AABB here — bridge cells are free by construction;
-                    # full pairwise collision on large shells dominates runtime.
+                    if index.collides(cand):
+                        continue
                     plates.append(cand)
                     world.append(cand)
+                    index.add(cand)
                     layer_used |= cells
                     placed += 1
     return plates, placed
@@ -323,6 +326,7 @@ def bridge_under_with_plates(
     plates: list[Brick] = []
     used_under: dict[int, set[tuple[int, int]]] = {}
     world = list(shell) + list(existing)
+    index = CollisionWorld(world)
 
     for rnd in range(max_rounds):
         report = check_connectivity(world)
@@ -343,6 +347,7 @@ def bridge_under_with_plates(
             free_by_layer=free_by_layer,
             used=used_under,
             world=world,
+            index=index,
             origin_y_fn=_brick_bottom_y,
             plate_color=plate_color,
         )
@@ -411,6 +416,7 @@ def bridge_tops_with_plates(
     plates: list[Brick] = []
     used_top: dict[int, set[tuple[int, int]]] = {}
     world = list(shell) + list(existing)
+    index = CollisionWorld(world)
     staples = _collect_staple_vox(placements, existing, staple_vox or set())
     occ = _occupancy_by_layer(placements)
     yaw90 = (0.0, 0.0, 1.0, 0.0, 1.0, 0.0, -1.0, 0.0, 0.0)
@@ -465,12 +471,40 @@ def bridge_tops_with_plates(
                         rot,
                         _brick_top_y(iy) - PLATE_H,
                     )
+                    if index.collides(plate):
+                        continue
                     world.append(plate)
+                    index.add(plate)
                     plates.append(plate)
                     layer_used.add((ix, iz))
                     layer_used.add(n)
                     placed += 1
                     break
+
+        if placed == 0:
+            # Larger multi-section strips on remaining free tops
+            free_by_layer: dict[int, dict[tuple[int, int], int]] = {}
+            for iy, cells in exposed.items():
+                layer = layers.get(iy, {})
+                layer_used = used_top.setdefault(iy, set())
+                free = {
+                    c: layer[c]
+                    for c in cells
+                    if c in layer and c not in layer_used
+                }
+                if free:
+                    free_by_layer[iy] = free
+            more, n = _plate_bridge_round(
+                free_by_layer=free_by_layer,
+                used=used_top,
+                world=world,
+                index=index,
+                origin_y_fn=lambda iy: _brick_top_y(iy) - PLATE_H,
+                plate_color=plate_color,
+                require_multi_section=True,
+            )
+            plates.extend(more)
+            placed = n
 
         if placed == 0:
             break
@@ -525,6 +559,7 @@ def staple_vertical_gaps(
     occupied = _placement_voxels(placements)
     staple_vox = _collect_staple_vox(placements, existing, prior_staple_vox or set())
     world = list(shell) + list(existing)
+    index = CollisionWorld(world)
     yaw90 = (0.0, 0.0, 1.0, 0.0, 1.0, 0.0, -1.0, 0.0, 0.0)
 
     def free_solid() -> set[tuple[int, int, int]]:
@@ -581,7 +616,10 @@ def staple_vertical_gaps(
                     continue
                 ix, iy, iz = cell
                 cand = _make_1x1_brick(staple_color, ix, iy, iz)
+                if index.collides(cand):
+                    continue
                 world.append(cand)
+                index.add(cand)
                 staple_vox.add(cell)
                 new_parts.append(cand)
                 n_added += 1
@@ -595,12 +633,14 @@ def staple_vertical_gaps(
             del new_parts[snap_p:]
             staple_vox.clear()
             staple_vox.update(snap_v)
+            index = CollisionWorld(world)
 
-        # (2) Batch stair joins — skip AABB (nub in free solid; plate on open tops)
+        # (2) Batch stair joins — collision-checked nub + plate
         used_nubs: set[tuple[int, int, int]] = set()
         used_plate_cells: set[tuple[int, int]] = set()
         batch: list[Brick] = []
         batch_nubs: list[tuple[int, int, int]] = []
+        trial = CollisionWorld(world)
 
         for (ix, iy, iz), sec in vsec.items():
             if (ix, iy, iz) not in occupied and (ix, iy, iz) not in staple_vox:
@@ -637,6 +677,10 @@ def staple_vertical_gaps(
                     rot,
                     _brick_top_y(iy + 1) - PLATE_H,
                 )
+                if trial.collides(nub_brick) or trial.collides(plate):
+                    continue
+                trial.add(nub_brick)
+                trial.add(plate)
                 batch.extend([nub_brick, plate])
                 batch_nubs.append(nub)
                 used_nubs.add(nub)
@@ -644,21 +688,23 @@ def staple_vertical_gaps(
                 break
 
         if batch:
+            snap_w = len(world)
             world.extend(batch)
             for nub in batch_nubs:
                 staple_vox.add(nub)
             new_sec = check_connectivity(world).section_count
             if new_sec < sec_before:
                 new_parts.extend(batch)
+                index = trial
                 print(
                     f"    staple stairs +{len(batch_nubs)} -> {new_sec} sections"
                 )
                 made_progress = True
                 continue
-            for _ in batch:
-                world.pop()
+            del world[snap_w:]
             for nub in batch_nubs:
                 staple_vox.discard(nub)
+            index = CollisionWorld(world)
 
         if made_progress:
             continue
@@ -713,22 +759,31 @@ def staple_vertical_gaps(
 
         if spine_cells:
             snap_w, snap_p, snap_v = len(world), len(new_parts), set(staple_vox)
+            ok = True
             for cell in spine_cells:
                 ix, iy_fill, iz = cell
                 brick = _make_1x1_brick(staple_color, ix, iy_fill, iz)
+                if index.collides(brick):
+                    ok = False
+                    break
                 world.append(brick)
+                index.add(brick)
                 new_parts.append(brick)
                 staple_vox.add(cell)
-            after = check_connectivity(world).section_count
-            if after < sec_before:
-                print(f"    column spines +{len(spine_cells)} -> {after} sections")
-                made_progress = True
-                continue
+            if ok:
+                after = check_connectivity(world).section_count
+                if after < sec_before:
+                    print(
+                        f"    column spines +{len(spine_cells)} -> {after} sections"
+                    )
+                    made_progress = True
+                    continue
             while len(world) > snap_w:
                 world.pop()
             del new_parts[snap_p:]
             staple_vox.clear()
             staple_vox.update(snap_v)
+            index = CollisionWorld(world)
 
         break
 
@@ -868,7 +923,7 @@ def _bridge_air_gaps_with_plates(
                         plate = _span_plate_on_pair(
                             (x, y, z), nb, plate_color
                         )
-                        if plate is None:
+                        if plate is None or collides_any(plate, world):
                             continue
                         world.append(plate)
                         new_sec = check_connectivity(world).section_count
@@ -1449,10 +1504,21 @@ def finish_shell_surface(
         tile_color=tile_color,
         solid=solid,
     )
+    # Fill leftover open studs (cavity / underside) with largest legal strips
+    gap_plates = pack_open_stud_gaps(
+        placements,
+        shell + under + cavity + staples + tiles,
+        plate_color=plate_color,
+        solid=solid,
+        staple_vox=staple_vox,
+    )
+    if gap_plates:
+        cavity.extend(gap_plates)
+        print(f"    gap-fill strips +{len(gap_plates)}")
+
     all_bricks = shell + under + cavity + staples + tiles
     sec2 = check_connectivity(all_bricks).section_count
-    # Full pairwise AABB is O(n²); skip on large models (connectivity is the gate)
-    cols = count_collisions(all_bricks) if len(all_bricks) < 1200 else -1
+    cols = count_collisions(all_bricks)
 
     stats = {
         "sections_before": sec0,
@@ -1466,8 +1532,62 @@ def finish_shell_surface(
         "tiles": len(tiles),
         "uncovered_studs": uncovered,
         "collisions": cols,
+        "gap_fill_plates": len(gap_plates),
     }
     return all_bricks, stats
+
+
+def pack_open_stud_gaps(
+    placements: list[Placement],
+    existing: list[Brick],
+    *,
+    plate_color: int = 72,
+    solid: SolidCells | None = None,
+    staple_vox: set[tuple[int, int, int]] | None = None,
+) -> list[Brick]:
+    """Pack largest collision-free plates onto remaining open tops (gap fill).
+
+    Does not require multi-section spans — fills leftover runs where a strip fits.
+    Skips exterior-facing cells (those are tiled separately).
+    """
+    staples = staple_vox or set()
+    occ = _occupancy_by_layer(placements)
+    for ix, iy, iz in staples:
+        occ.setdefault(iy, set()).add((ix, iz))
+
+    exterior = exterior_exposed_cells(placements, solid)
+    free_by_layer: dict[int, dict[tuple[int, int], int]] = {}
+    for iy, cells in occ.items():
+        above = occ.get(iy + 1, set()) | {
+            (x, z) for x, y, z in staples if y == iy + 1
+        }
+        ext = exterior.get(iy, set())
+        free = {
+            (x, z): 0
+            for x, z in cells
+            if (x, z) not in above and (x, z) not in ext
+        }
+        if free:
+            free_by_layer[iy] = free
+
+    if not free_by_layer:
+        return []
+
+    world = list(existing)
+    index = CollisionWorld(world)
+    used: dict[int, set[tuple[int, int]]] = {}
+    plates, placed = _plate_bridge_round(
+        free_by_layer=free_by_layer,
+        used=used,
+        world=world,
+        index=index,
+        origin_y_fn=lambda iy: _brick_top_y(iy) - PLATE_H,
+        plate_color=plate_color,
+        require_multi_section=False,
+    )
+    if placed:
+        print(f"    packed open-stud gaps +{placed}")
+    return plates
 
 
 def open_cutaway_bricks(bricks: list[Brick], *, gap_studs: float = 2.0) -> list[Brick]:

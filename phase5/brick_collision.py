@@ -3,6 +3,8 @@ AABB collision checks for flat Brick lists (Phase 5 plate bridges).
 
 Reuses Phase 2 AABB math; does not require a SceneGraph.
 Flush face-touch (legal stack) is NOT a collision.
+
+CollisionWorld caches AABBs so repeated placement checks stay cheap.
 """
 
 from __future__ import annotations
@@ -21,8 +23,18 @@ from transform import Transform  # noqa: E402
 
 def brick_to_transform(b: Brick) -> Transform:
     return Transform(
-        x=b.x, y=b.y, z=b.z,
-        a=b.a, b=b.b, c=b.c, d=b.d, e=b.e, f=b.f, g=b.g, h=b.h, i=b.i,
+        x=b.x,
+        y=b.y,
+        z=b.z,
+        a=b.a,
+        b=b.b,
+        c=b.c,
+        d=b.d,
+        e=b.e,
+        f=b.f,
+        g=b.g,
+        h=b.h,
+        i=b.i,
     )
 
 
@@ -47,6 +59,37 @@ def brick_aabb(b: Brick) -> AABB:
         ys.append(wy)
         zs.append(wz)
     return AABB(min(xs), min(ys), min(zs), max(xs), max(ys), max(zs))
+
+
+class CollisionWorld:
+    """Growing set of bricks with cached AABBs for fast overlap tests."""
+
+    __slots__ = ("bricks", "boxes")
+
+    def __init__(self, bricks: list[Brick] | None = None) -> None:
+        self.bricks: list[Brick] = []
+        self.boxes: list[AABB] = []
+        if bricks:
+            for b in bricks:
+                self.add(b)
+
+    def add(self, b: Brick) -> None:
+        self.bricks.append(b)
+        self.boxes.append(brick_aabb(b))
+
+    def collides(self, candidate: Brick) -> bool:
+        box = brick_aabb(candidate)
+        for other in self.boxes:
+            if box.overlaps(other):
+                return True
+        return False
+
+    def try_add(self, candidate: Brick) -> bool:
+        """Add candidate if it does not collide; return True if added."""
+        if self.collides(candidate):
+            return False
+        self.add(candidate)
+        return True
 
 
 def collides_any(candidate: Brick, existing: list[Brick]) -> bool:
