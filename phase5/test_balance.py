@@ -22,13 +22,15 @@ class TestBalance(unittest.TestCase):
         self.assertTrue(r.inside)
 
     def test_offset_heavy_tip(self) -> None:
-        # Wide base + heavy offset tower — CoM leaves footprint
+        # Small base on ground + offset mass above it (not on ground).
+        # Tower bottoms must sit above ground_y or they enlarge the footprint.
         base = Brick("3001.dat", 4, 0.0, -24.0, 0.0)
         tower = [
-            Brick("3005.dat", 4, 200.0, -24.0 * (i + 1), 0.0)
+            Brick("3005.dat", 4, 200.0, -24.0 * (i + 2), 0.0)
             for i in range(10)
         ]
         r = check_balance([base] + tower, min_margin_studs=1.0)
+        self.assertEqual(r.ground_parts, 1)
         self.assertTrue(r.tip_hazard)
         self.assertFalse(r.inside)
 
