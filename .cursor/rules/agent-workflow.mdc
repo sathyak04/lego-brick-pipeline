@@ -7,9 +7,9 @@ alwaysApply: true
 
 ## Goals
 
-Green only when: **1 clutch section**, **0 AABB collisions**, **hollow**. Tip-over is deferred.
+Green only when: **1 clutch section**, **0 AABB collisions**, **hollow**.
 
-Soft (not a gate): clutch `weak_edges` / `mean_overlap` from `connectivity.clutch_strength` — improve in a separate session on already-PASS models; never solid-fill to chase it.
+Soft (not a gate): clutch `weak_edges` / `mean_overlap`, and balance/tip (`check_balance`) — reported on already-PASS models; never solid-fill to chase soft metrics.
 
 ## One writer
 

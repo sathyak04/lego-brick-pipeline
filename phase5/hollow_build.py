@@ -25,6 +25,7 @@ from connectivity import (  # noqa: E402
     classify_weak_edges,
     clutch_strength,
 )
+from balance import BalanceReport, check_balance, format_report as format_balance  # noqa: E402
 from scaffold import (  # noqa: E402
     interior_voxels,
     shell_plus_scaffold,
@@ -36,6 +37,8 @@ from voxelize import Voxel, voxelize_solid  # noqa: E402
 PASS_SECTIONS = 1
 PASS_COLLISIONS = 0
 SHELL_THICKEN_LAYERS = 1
+# Soft tip margin for hollow shells (footprint is thin ring on the ground).
+BALANCE_MIN_MARGIN_STUDS = 0.5
 
 
 @dataclass
@@ -51,13 +54,19 @@ class HollowResult:
     shell_count: int
     interior_count: int
     part_mix: dict[str, int]
+    balance: BalanceReport
 
     @property
     def ok(self) -> bool:
+        """Hard PASS: 1 clutch section + 0 collisions (hollow by construction)."""
         return (
             self.report.section_count == PASS_SECTIONS
             and self.stats.get("collisions", 1) == PASS_COLLISIONS
         )
+
+    @property
+    def balanced(self) -> bool:
+        return not self.balance.tip_hazard
 
     @property
     def hollow_pct(self) -> float:
@@ -130,6 +139,8 @@ def build_hollow_from_solid(
     for b in bricks:
         mix[b.part_id] = mix.get(b.part_id, 0) + 1
 
+    balance = check_balance(bricks, min_margin_studs=BALANCE_MIN_MARGIN_STUDS)
+
     if verbose:
         print(
             f"  under_plates={stats['under_plates']} "
@@ -142,6 +153,11 @@ def build_hollow_from_solid(
             f"  sections: {stats['sections_before']} -> "
             f"{stats['sections_after_under']} (after under) -> "
             f"{stats['sections_final']} (final)"
+        )
+        tip = "TIP" if balance.tip_hazard else "PASS"
+        print(
+            f"  balance={tip} ground={balance.ground_parts} "
+            f"margin={balance.edge_margin_ldu:.1f}/{balance.min_margin_ldu:.1f} LDU"
         )
 
     return HollowResult(
@@ -156,6 +172,7 @@ def build_hollow_from_solid(
         shell_count=len(shell),
         interior_count=len(interior),
         part_mix=mix,
+        balance=balance,
     )
 
 

@@ -29,6 +29,7 @@ from connectivity import (  # noqa: E402
     format_connectivity_report,
     format_weak_edge_diagnosis,
 )
+from balance import format_report as format_balance  # noqa: E402
 from hollow_build import (  # noqa: E402
     HollowResult,
     build_hollow_from_mesh,
@@ -45,13 +46,15 @@ TEAPOT_STUDS = 22.0
 def _print_result(result: HollowResult) -> None:
     print(format_connectivity_report(result.report, result.bricks, strength=result.strength))
     print(format_weak_edge_diagnosis(result.weak_diag))
+    print(format_balance(result.balance))
     verdict = "PASS" if result.ok else "FAIL"
+    bal = "PASS" if result.balanced else "TIP"
     print(
         f"  [{verdict}] {result.name}: sections={result.report.section_count} "
         f"collisions={result.stats['collisions']} parts={len(result.bricks)} "
         f"hollow={result.hollow_pct:.0f}% "
         f"weak={result.strength.weak_edges}/{result.strength.edge_count} "
-        f"mean={result.strength.mean_overlap:.2f}"
+        f"mean={result.strength.mean_overlap:.2f} balance={bal}"
     )
 
 
@@ -63,7 +66,9 @@ def _write_report(path: Path, result: HollowResult, header: str) -> None:
             result.report, result.bricks, strength=result.strength
         )
         + "\n"
-        + format_weak_edge_diagnosis(result.weak_diag),
+        + format_weak_edge_diagnosis(result.weak_diag)
+        + "\n"
+        + format_balance(result.balance),
         encoding="utf-8",
     )
 
@@ -136,7 +141,8 @@ def main() -> None:
         "1. sphere_full.io   — closed curved shell (baseline)\n"
         "2. bunny_full.io    — organic overhangs / ears\n"
         "3. teapot_full.io   — thin handle + spout (clutch stress)\n\n"
-        "Hard PASS per model: 1 clutch section, 0 AABB collisions, hollow.\n",
+        "Hard PASS per model: 1 clutch section, 0 AABB collisions, hollow.\n"
+        "Soft report: clutch weak_edges/mean_overlap + balance/tip check.\n",
         encoding="utf-8",
     )
 
@@ -145,16 +151,20 @@ def main() -> None:
     print("SUITE SUMMARY")
     print("=" * 60)
     failed = []
+    tippy = []
     for r in results:
         mark = "PASS" if r.ok else "FAIL"
+        bal = "PASS" if r.balanced else "TIP"
         print(
             f"  {mark:4}  {r.name:8}  sections={r.report.section_count}  "
             f"collisions={r.stats['collisions']}  parts={len(r.bricks)}  "
             f"weak={100.0 * r.strength.weak_ratio:.0f}%  "
-            f"mean={r.strength.mean_overlap:.2f}"
+            f"mean={r.strength.mean_overlap:.2f}  balance={bal}"
         )
         if not r.ok:
             failed.append(r.name)
+        if not r.balanced:
+            tippy.append(r.name)
     print()
     print(f"Open: {out / 'OPEN_THESE.txt'}")
     print(f"  {out / 'sphere_full.io'}")
@@ -165,6 +175,10 @@ def main() -> None:
         print(f"SUITE FAIL: {', '.join(failed)}", file=sys.stderr)
         raise SystemExit(1)
     print("SUITE OK: sphere + bunny + teapot all 1 section / 0 collisions")
+    if tippy:
+        print(f"SOFT tip report: {', '.join(tippy)} (not a hard FAIL yet)")
+    else:
+        print("SOFT balance: all shapes PASS tip check")
 
 
 if __name__ == "__main__":

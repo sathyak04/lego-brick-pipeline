@@ -1,5 +1,5 @@
 """
-Hollow sphere connectivity test (locked diameter-16 baseline).
+Hollow sphere connectivity + balance test (locked diameter baseline).
 
 Exports:
   - sphere_full.io   complete hollow connected sphere
@@ -22,6 +22,7 @@ from connectivity import (  # noqa: E402
     format_connectivity_report,
     format_weak_edge_diagnosis,
 )
+from balance import format_report as format_balance  # noqa: E402
 from hollow_build import (  # noqa: E402
     PASS_COLLISIONS,
     PASS_SECTIONS,
@@ -51,6 +52,7 @@ def main() -> None:
 
     print(format_connectivity_report(result.report, result.bricks, strength=result.strength))
     print(format_weak_edge_diagnosis(result.weak_diag))
+    print(format_balance(result.balance))
 
     export_bricks_to_io(
         result.bricks, out / "sphere_full.io", name="Hollow sphere (full)"
@@ -63,7 +65,9 @@ def main() -> None:
             result.report, result.bricks, strength=result.strength
         )
         + "\n"
-        + format_weak_edge_diagnosis(result.weak_diag),
+        + format_weak_edge_diagnosis(result.weak_diag)
+        + "\n"
+        + format_balance(result.balance),
         encoding="utf-8",
     )
 
@@ -72,7 +76,8 @@ def main() -> None:
     print(
         f"Exposed top studs: {result.stats['uncovered_studs']} | "
         f"collisions: {result.stats['collisions']} | "
-        f"detached: {result.stats['sections_final']}"
+        f"detached: {result.stats['sections_final']} | "
+        f"balance: {'PASS' if result.balanced else 'TIP'}"
     )
 
     if not result.ok:
@@ -87,7 +92,8 @@ def main() -> None:
         f"sections={result.report.section_count} "
         f"collisions={result.stats['collisions']} "
         f"weak_edges={result.strength.weak_edges}/{result.strength.edge_count} "
-        f"mean_overlap={result.strength.mean_overlap:.2f}"
+        f"mean_overlap={result.strength.mean_overlap:.2f} "
+        f"balance={'PASS' if result.balanced else 'TIP'}"
     )
     soft_ok = (
         result.strength.weak_ratio <= SOFT_WEAK_RATIO

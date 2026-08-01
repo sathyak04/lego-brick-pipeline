@@ -2,22 +2,20 @@
 
 ## Success criteria (always)
 
-Hollow sphere work is green only when **all** hold:
+Hollow work is green only when **all** hold:
 
 1. **1 clutch section** (Studio detached-sections graph)
 2. **0 AABB collisions** (face-touch stacks OK)
 3. **Hollow** (shell + connectors, not solid fill)
 
-Balance / tip-over is out of scope until the above is green.
-
 ### Soft report (not a PASS gate)
 
-`demo_sphere` also prints **clutch strength**:
+`demo_sphere` / `demo_suite` also print:
 
-- `mean_overlap` — average stud↔tube matches per clutch edge
-- `weak_edges` — edges with only 1 stud locked (Studio clutch-power *intent*, not bit-exact)
+- **clutch strength** — `mean_overlap`, `weak_edges` (Studio clutch-power *intent*, not bit-exact)
+- **balance / tip** — CoM vs ground footprint (`balance.check_balance`); TIP is reported but does not fail the demo yet
 
-Do **not** fail the demo on these. Improving them is a **separate session type** (like visual polish): only on an already-PASS model; do not mix with gap-fill reconnect thrash.
+Do **not** fail demos on soft metrics. Improving them is a separate session type.
 
 ## Locked baseline
 
