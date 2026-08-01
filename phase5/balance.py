@@ -11,7 +11,7 @@ Spatial math (LDraw: -Y up, gravity along +Y):
      Part center = origin + (0, height/2, 0) in part space, then world pose.
      (Top-origin parts: geometric center is half-height toward +Y / down.)
   3. Footprint = XZ outline of parts whose BOTTOM sits on the ground
-     (bottom y ≈ min bottom among all parts, within epsilon).
+     (bottom y ≈ max bottom among all parts, within epsilon — +Y is down).
   4. Drop gravity from CoM straight "down" onto XZ → point (CoM_x, CoM_z).
   5. PASS if that point lies inside the footprint polygon with a stud-margin
      from the boundary; else FAIL as "Tipping Hazard".
@@ -169,7 +169,8 @@ def check_balance(
         )
 
     bottoms = [_part_bottom_y(b) for b in bricks]
-    ground_y = min(bottoms)
+    # +Y is down: the ground plane is the *largest* bottom Y (furthest down).
+    ground_y = max(bottoms)
     eps = 1.0  # LDU tolerance for "on ground"
 
     ground: list[Brick] = []

@@ -16,10 +16,15 @@ VERDICT: PASS - single connected clutch graph
     extra-extra: 19
     brick-brick: 226
     involving plate/tile: 144
-VERDICT: FAIL - Tipping Hazard
-  ground parts:     1
+VERDICT: PASS - balanced
+  ground parts:     8
   CoM LDU:          (-23.4, -174.2, 37.7)
   support XZ:       (-23.4, 37.7)
-  inside footprint: False
-  edge margin:      0.0 LDU (need >= 10.0)
-  footprint verts:  4
+  inside footprint: True
+  edge margin:      86.9 LDU (need >= 10.0)
+  footprint verts:  10
+VERDICT: PASS - all pieces supported from ground
+  total parts:      509
+  grounded:         8
+  supported:        509
+  unsupported:      0

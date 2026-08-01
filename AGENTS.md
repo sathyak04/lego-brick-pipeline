@@ -13,7 +13,8 @@ Hollow work is green only when **all** hold:
 `demo_sphere` / `demo_suite` also print:
 
 - **clutch strength** — `mean_overlap`, `weak_edges` (Studio clutch-power *intent*, not bit-exact)
-- **balance / tip** — CoM vs ground footprint (`balance.check_balance`); TIP is reported but does not fail the demo yet
+- **balance / tip** — CoM vs ground footprint; auto-adds an under-plate base when tipping if possible
+- **overhang** — pieces unreachable from ground via clutch (`overhang.check_overhangs`)
 
 Do **not** fail demos on soft metrics. Improving them is a separate session type.
 

@@ -119,7 +119,8 @@ def check_overhangs(bricks: list[Brick]) -> OverhangReport:
         return OverhangReport([], [], [])
 
     bottoms = [_bottom(b) for b in bricks]
-    ground_y = min(bottoms)
+    # +Y is down: grounded bricks have the largest bottom Y.
+    ground_y = max(bottoms)
     grounded = [i for i, by in enumerate(bottoms) if abs(by - ground_y) <= EPS_Y]
 
     # Adjacency list: support edges undirected for reachability from ground

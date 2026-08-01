@@ -22,16 +22,15 @@ class TestBalance(unittest.TestCase):
         self.assertTrue(r.inside)
 
     def test_offset_heavy_tip(self) -> None:
-        # Wide base + heavy brick far outside — should tip
+        # Wide base + heavy offset tower — CoM leaves footprint
         base = Brick("3001.dat", 4, 0.0, -24.0, 0.0)
-        # Another 2x4 shifted far on X at same height (floating mass) — use stacked height
-        # Put a tall tower of 1x1s offset so CoM leaves footprint
         tower = [
-            Brick("3005.dat", 4, 80.0, -24.0 * (i + 1), 0.0)
-            for i in range(6)
+            Brick("3005.dat", 4, 200.0, -24.0 * (i + 1), 0.0)
+            for i in range(10)
         ]
         r = check_balance([base] + tower, min_margin_studs=1.0)
         self.assertTrue(r.tip_hazard)
+        self.assertFalse(r.inside)
 
 
 if __name__ == "__main__":

@@ -25,7 +25,9 @@ from connectivity import (  # noqa: E402
     classify_weak_edges,
     clutch_strength,
 )
-from balance import BalanceReport, check_balance, format_report as format_balance  # noqa: E402
+from balance import BalanceReport, check_balance  # noqa: E402
+from overhang import OverhangReport, check_overhangs  # noqa: E402
+from stabilize import add_balance_base  # noqa: E402
 from scaffold import (  # noqa: E402
     interior_voxels,
     shell_plus_scaffold,
@@ -55,6 +57,8 @@ class HollowResult:
     interior_count: int
     part_mix: dict[str, int]
     balance: BalanceReport
+    overhang: OverhangReport
+    base_plates_added: int
 
     @property
     def ok(self) -> bool:
@@ -67,6 +71,10 @@ class HollowResult:
     @property
     def balanced(self) -> bool:
         return not self.balance.tip_hazard
+
+    @property
+    def supported(self) -> bool:
+        return len(self.overhang.unsupported_ids) == 0
 
     @property
     def hollow_pct(self) -> float:
@@ -127,6 +135,24 @@ def build_hollow_from_solid(
         plate_color=plate_color,
         solid=solid_cells,
     )
+
+    balance = check_balance(bricks, min_margin_studs=BALANCE_MIN_MARGIN_STUDS)
+    base_added = 0
+    if balance.tip_hazard:
+        bricks, balance, base_added = add_balance_base(
+            bricks,
+            plate_color=plate_color,
+            min_margin_studs=BALANCE_MIN_MARGIN_STUDS,
+        )
+        if base_added and verbose:
+            print(f"  balance base +{base_added} under-plate")
+        # Refresh collision count if we added a base
+        from brick_collision import count_collisions
+
+        stats = dict(stats)
+        stats["collisions"] = count_collisions(bricks)
+        stats["balance_base_plates"] = base_added
+
     report = check_connectivity(bricks)
     strength = clutch_strength(bricks, report)
     weak_diag = classify_weak_edges(
@@ -135,11 +161,10 @@ def build_hollow_from_solid(
         strength=strength,
         shell_count=shell_part_count,
     )
+    overhang = check_overhangs(bricks)
     mix: dict[str, int] = {}
     for b in bricks:
         mix[b.part_id] = mix.get(b.part_id, 0) + 1
-
-    balance = check_balance(bricks, min_margin_studs=BALANCE_MIN_MARGIN_STUDS)
 
     if verbose:
         print(
@@ -152,13 +177,15 @@ def build_hollow_from_solid(
         print(
             f"  sections: {stats['sections_before']} -> "
             f"{stats['sections_after_under']} (after under) -> "
-            f"{stats['sections_final']} (final)"
+            f"{report.section_count} (final)"
         )
         tip = "TIP" if balance.tip_hazard else "PASS"
         print(
             f"  balance={tip} ground={balance.ground_parts} "
             f"margin={balance.edge_margin_ldu:.1f}/{balance.min_margin_ldu:.1f} LDU"
         )
+        ov = "PASS" if not overhang.unsupported_ids else f"FAIL({len(overhang.unsupported_ids)})"
+        print(f"  overhang={ov}")
 
     return HollowResult(
         name=name,
@@ -173,6 +200,8 @@ def build_hollow_from_solid(
         interior_count=len(interior),
         part_mix=mix,
         balance=balance,
+        overhang=overhang,
+        base_plates_added=base_added,
     )
 
 

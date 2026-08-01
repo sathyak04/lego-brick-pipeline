@@ -17,9 +17,14 @@ VERDICT: PASS - single connected clutch graph
     brick-brick: 54
     involving plate/tile: 67
 VERDICT: PASS - balanced
-  ground parts:     1
+  ground parts:     11
   CoM LDU:          (-15.5, -87.9, -0.0)
   support XZ:       (-15.5, -0.0)
   inside footprint: True
-  edge margin:      15.5 LDU (need >= 10.0)
-  footprint verts:  4
+  edge margin:      95.5 LDU (need >= 10.0)
+  footprint verts:  10
+VERDICT: PASS - all pieces supported from ground
+  total parts:      208
+  grounded:         11
+  supported:        208
+  unsupported:      0
