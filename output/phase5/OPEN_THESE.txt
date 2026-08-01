@@ -5,4 +5,4 @@ Open these three in Studio (full models, no half-cuts):
 3. teapot_full.io   — thin handle + spout (clutch stress)
 
 Hard PASS per model: 1 clutch section, 0 AABB collisions, hollow.
-Soft report: clutch strength, balance/tip, overhang support.
+Soft report: clutch strength, balance/tip, overhang, build order.

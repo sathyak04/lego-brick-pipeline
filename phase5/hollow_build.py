@@ -27,6 +27,7 @@ from connectivity import (  # noqa: E402
 )
 from balance import BalanceReport, check_balance  # noqa: E402
 from overhang import OverhangReport, check_overhangs  # noqa: E402
+from build_order import BuildOrderReport, check_build_order  # noqa: E402
 from stabilize import add_balance_base  # noqa: E402
 from scaffold import (  # noqa: E402
     interior_voxels,
@@ -58,6 +59,7 @@ class HollowResult:
     part_mix: dict[str, int]
     balance: BalanceReport
     overhang: OverhangReport
+    build_order: BuildOrderReport
     base_plates_added: int
 
     @property
@@ -75,6 +77,10 @@ class HollowResult:
     @property
     def supported(self) -> bool:
         return len(self.overhang.unsupported_ids) == 0
+
+    @property
+    def buildable(self) -> bool:
+        return self.build_order.buildable
 
     @property
     def hollow_pct(self) -> float:
@@ -162,6 +168,7 @@ def build_hollow_from_solid(
         shell_count=shell_part_count,
     )
     overhang = check_overhangs(bricks)
+    build_order = check_build_order(bricks)
     mix: dict[str, int] = {}
     for b in bricks:
         mix[b.part_id] = mix.get(b.part_id, 0) + 1
@@ -186,6 +193,12 @@ def build_hollow_from_solid(
         )
         ov = "PASS" if not overhang.unsupported_ids else f"FAIL({len(overhang.unsupported_ids)})"
         print(f"  overhang={ov}")
+        bo = (
+            "PASS"
+            if build_order.buildable
+            else f"FAIL({len(build_order.blocked_ids)})"
+        )
+        print(f"  build_order={bo}")
 
     return HollowResult(
         name=name,
@@ -201,6 +214,7 @@ def build_hollow_from_solid(
         part_mix=mix,
         balance=balance,
         overhang=overhang,
+        build_order=build_order,
         base_plates_added=base_added,
     )
 

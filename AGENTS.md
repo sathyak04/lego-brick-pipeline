@@ -15,6 +15,7 @@ Hollow work is green only when **all** hold:
 - **clutch strength** — `mean_overlap`, `weak_edges` (Studio clutch-power *intent*, not bit-exact)
 - **balance / tip** — CoM vs ground footprint; auto-adds an under-plate base when tipping if possible
 - **overhang** — pieces unreachable from ground via clutch (`overhang.check_overhangs`)
+- **build order** — bottom-up placement via vertical stud support only (`build_order.check_build_order`); mid-air / side-cling pieces are soft FAIL
 
 Do **not** fail demos on soft metrics. Improving them is a separate session type.
 

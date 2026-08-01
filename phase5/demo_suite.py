@@ -31,6 +31,7 @@ from connectivity import (  # noqa: E402
 )
 from balance import format_report as format_balance  # noqa: E402
 from overhang import format_overhang_report  # noqa: E402
+from build_order import format_build_order_report  # noqa: E402
 from hollow_build import (  # noqa: E402
     HollowResult,
     build_hollow_from_mesh,
@@ -49,15 +50,18 @@ def _print_result(result: HollowResult) -> None:
     print(format_weak_edge_diagnosis(result.weak_diag))
     print(format_balance(result.balance))
     print(format_overhang_report(result.overhang, result.bricks))
+    print(format_build_order_report(result.build_order, result.bricks))
     verdict = "PASS" if result.ok else "FAIL"
     bal = "PASS" if result.balanced else "TIP"
     ov = "PASS" if result.supported else f"FAIL({len(result.overhang.unsupported_ids)})"
+    bo = "PASS" if result.buildable else f"FAIL({len(result.build_order.blocked_ids)})"
     print(
         f"  [{verdict}] {result.name}: sections={result.report.section_count} "
         f"collisions={result.stats['collisions']} parts={len(result.bricks)} "
         f"hollow={result.hollow_pct:.0f}% "
         f"weak={result.strength.weak_edges}/{result.strength.edge_count} "
-        f"mean={result.strength.mean_overlap:.2f} balance={bal} overhang={ov}"
+        f"mean={result.strength.mean_overlap:.2f} balance={bal} overhang={ov} "
+        f"build={bo}"
     )
 
 
@@ -73,7 +77,9 @@ def _write_report(path: Path, result: HollowResult, header: str) -> None:
         + "\n"
         + format_balance(result.balance)
         + "\n"
-        + format_overhang_report(result.overhang, result.bricks),
+        + format_overhang_report(result.overhang, result.bricks)
+        + "\n"
+        + format_build_order_report(result.build_order, result.bricks),
         encoding="utf-8",
     )
 
@@ -147,7 +153,7 @@ def main() -> None:
         "2. bunny_full.io    — organic overhangs / ears\n"
         "3. teapot_full.io   — thin handle + spout (clutch stress)\n\n"
         "Hard PASS per model: 1 clutch section, 0 AABB collisions, hollow.\n"
-        "Soft report: clutch strength, balance/tip, overhang support.\n",
+        "Soft report: clutch strength, balance/tip, overhang, build order.\n",
         encoding="utf-8",
     )
 
@@ -158,15 +164,18 @@ def main() -> None:
     failed = []
     tippy = []
     hanging = []
+    unbuildable = []
     for r in results:
         mark = "PASS" if r.ok else "FAIL"
         bal = "PASS" if r.balanced else "TIP"
         ov = "PASS" if r.supported else f"FAIL({len(r.overhang.unsupported_ids)})"
+        bo = "PASS" if r.buildable else f"FAIL({len(r.build_order.blocked_ids)})"
         print(
             f"  {mark:4}  {r.name:8}  sections={r.report.section_count}  "
             f"collisions={r.stats['collisions']}  parts={len(r.bricks)}  "
             f"weak={100.0 * r.strength.weak_ratio:.0f}%  "
-            f"mean={r.strength.mean_overlap:.2f}  balance={bal}  overhang={ov}"
+            f"mean={r.strength.mean_overlap:.2f}  balance={bal}  "
+            f"overhang={ov}  build={bo}"
         )
         if not r.ok:
             failed.append(r.name)
@@ -174,6 +183,8 @@ def main() -> None:
             tippy.append(r.name)
         if not r.supported:
             hanging.append(r.name)
+        if not r.buildable:
+            unbuildable.append(r.name)
     print()
     print(f"Open: {out / 'OPEN_THESE.txt'}")
     print(f"  {out / 'sphere_full.io'}")
@@ -192,6 +203,13 @@ def main() -> None:
         print(f"SOFT overhang report: {', '.join(hanging)} (not a hard FAIL yet)")
     else:
         print("SOFT overhang: all pieces supported from ground")
+    if unbuildable:
+        print(
+            f"SOFT build-order report: {', '.join(unbuildable)} "
+            "(mid-air placements; not a hard FAIL yet)"
+        )
+    else:
+        print("SOFT build-order: all shapes placeable bottom-up")
 
 
 if __name__ == "__main__":

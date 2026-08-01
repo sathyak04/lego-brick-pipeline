@@ -28,3 +28,25 @@ VERDICT: PASS - all pieces supported from ground
   grounded:         4
   supported:        482
   unsupported:      0
+VERDICT: FAIL - 322 piece(s) need mid-air placement
+  total parts:      482
+  grounded:         4
+  placed in order:  160
+  blocked (mid-air):322
+  blocked samples (first 15):
+    [8] 3001.dat @ (80,-48,0)
+    [9] 3009.dat @ (0,-48,-90)
+    [10] 3009.dat @ (0,-48,90)
+    [11] 3004.dat @ (0,-48,-110)
+    [12] 3004.dat @ (0,-48,110)
+    [13] 3004.dat @ (110,-48,0)
+    [14] 3004.dat @ (-110,-48,0)
+    [15] 3005.dat @ (-90,-48,-50)
+    [16] 3005.dat @ (-90,-48,50)
+    [17] 3005.dat @ (90,-48,-50)
+    [18] 3005.dat @ (90,-48,50)
+    [23] 2456.dat @ (-120,-72,0)
+    [24] 2456.dat @ (0,-72,-120)
+    [25] 2456.dat @ (0,-72,120)
+    [26] 2456.dat @ (120,-72,0)
+    ... +307 more

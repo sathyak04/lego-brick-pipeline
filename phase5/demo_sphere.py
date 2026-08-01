@@ -24,6 +24,7 @@ from connectivity import (  # noqa: E402
 )
 from balance import format_report as format_balance  # noqa: E402
 from overhang import format_overhang_report  # noqa: E402
+from build_order import format_build_order_report  # noqa: E402
 from hollow_build import (  # noqa: E402
     PASS_COLLISIONS,
     PASS_SECTIONS,
@@ -55,6 +56,7 @@ def main() -> None:
     print(format_weak_edge_diagnosis(result.weak_diag))
     print(format_balance(result.balance))
     print(format_overhang_report(result.overhang, result.bricks))
+    print(format_build_order_report(result.build_order, result.bricks))
 
     export_bricks_to_io(
         result.bricks, out / "sphere_full.io", name="Hollow sphere (full)"
@@ -71,7 +73,9 @@ def main() -> None:
         + "\n"
         + format_balance(result.balance)
         + "\n"
-        + format_overhang_report(result.overhang, result.bricks),
+        + format_overhang_report(result.overhang, result.bricks)
+        + "\n"
+        + format_build_order_report(result.build_order, result.bricks),
         encoding="utf-8",
     )
 
@@ -82,7 +86,8 @@ def main() -> None:
         f"collisions: {result.stats['collisions']} | "
         f"detached: {result.stats['sections_final']} | "
         f"balance: {'PASS' if result.balanced else 'TIP'} | "
-        f"overhang: {'PASS' if result.supported else 'FAIL'}"
+        f"overhang: {'PASS' if result.supported else 'FAIL'} | "
+        f"build: {'PASS' if result.buildable else 'FAIL'}"
     )
 
     if not result.ok:
