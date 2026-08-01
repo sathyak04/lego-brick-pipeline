@@ -1,0 +1,18 @@
+Hollow bunny max_studs=24.0
+stats={'sections_before': 19, 'sections_after_under': 12, 'sections_after_cavity': 2, 'sections_after_staples': 2, 'sections_final': 1, 'under_plates': 0, 'cavity_plates': 21, 'staples': 5, 'plates': 21, 'tiles': 146, 'uncovered_studs': 2, 'collisions': 0, 'gap_fill_plates': 0, 'stripped_collisions': 0, 'pruned_staples': 145, 'weak_edges': 370, 'clutch_edges': 651, 'mean_overlap': 2.119815668202765}
+mix={'3007.dat': 18, '2456.dat': 19, '3001.dat': 27, '3009.dat': 11, '3002.dat': 12, '3010.dat': 32, '3003.dat': 28, '3622.dat': 23, '3004.dat': 59, '3005.dat': 105, '3008.dat': 8, '3034.dat': 1, '3020.dat': 1, '3666.dat': 2, '3710.dat': 1, '3623.dat': 2, '3023.dat': 13, '3460.dat': 1, '87079.dat': 2, '26603.dat': 4, '2431.dat': 11, '3070b.dat': 84, '6636.dat': 4, '3068b.dat': 2, '63864.dat': 13, '3069b.dat': 21, '4162.dat': 2, '1751.dat': 2, '69729.dat': 1}
+VERDICT: PASS - single connected clutch graph
+  total parts:         509
+  clutch edges:        651
+  detached sections:   1
+  largest section:     509 parts
+  singleton sections:  0
+  size histogram (desc): 509
+  clutch mean overlap: 2.12 studs/edge
+  weak edges (1-stud): 370/651 (57%)
+  weak-edge diagnosis (n=370):
+    shell-shell: 222
+    shell-extra: 129
+    extra-extra: 19
+    brick-brick: 226
+    involving plate/tile: 144

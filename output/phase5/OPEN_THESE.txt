@@ -1,4 +1,7 @@
-Open these two in Studio:
+Open these three in Studio (full models, no half-cuts):
 
-1. sphere_full.io       — complete hollow connected sphere
-2. sphere_half_cut.io   — same model, cut in half so the cavity is visible
+1. sphere_full.io   — closed curved shell (baseline)
+2. bunny_full.io    — organic overhangs / ears
+3. teapot_full.io   — thin handle + spout (clutch stress)
+
+Hard PASS per model: 1 clutch section, 0 AABB collisions, hollow.

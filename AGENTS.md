@@ -26,6 +26,13 @@ Do **not** fail the demo on these. Improving them is a **separate session type**
 - Exit code **0** only on 1 section / 0 collisions; otherwise exit **1**
 - Do **not** raise the default diameter until that size stays PASS
 
+## Studio suite (sphere + bunny + teapot)
+
+- `python -m phase5.demo_suite` — full hollow models only (no half-cuts)
+- Exports: `sphere_full.io`, `bunny_full.io`, `teapot_full.io`
+- Teapot is the topology stress case (thin handle + spout)
+- Shared pipeline: `phase5/hollow_build.py`
+
 ## How to use agents on this repo
 
 **One writer at a time.** Do not run multiple coding agents editing `phase5/plate_bridge.py` (or the same reconnect path) in parallel.

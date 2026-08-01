@@ -1,0 +1,18 @@
+Hollow teapot max_studs=22.0
+stats={'sections_before': 15, 'sections_after_under': 9, 'sections_after_cavity': 3, 'sections_after_staples': 3, 'sections_final': 1, 'under_plates': 0, 'cavity_plates': 16, 'staples': 6, 'plates': 16, 'tiles': 67, 'uncovered_studs': 0, 'collisions': 0, 'gap_fill_plates': 0, 'stripped_collisions': 0, 'pruned_staples': 38, 'weak_edges': 121, 'clutch_edges': 269, 'mean_overlap': 2.836431226765799}
+mix={'3007.dat': 24, '3001.dat': 6, '3010.dat': 7, '3005.dat': 28, '2456.dat': 5, '3004.dat': 28, '3008.dat': 6, '3002.dat': 2, '3622.dat': 7, '3003.dat': 7, '3009.dat': 5, '3022.dat': 1, '3710.dat': 2, '3460.dat': 2, '3034.dat': 1, '3023.dat': 9, '3623.dat': 1, '1751.dat': 6, '3069b.dat': 13, '2431.dat': 5, '3070b.dat': 34, '3068b.dat': 4, '63864.dat': 2, '69729.dat': 1, '26603.dat': 2}
+VERDICT: PASS - single connected clutch graph
+  total parts:         208
+  clutch edges:        269
+  detached sections:   1
+  largest section:     208 parts
+  singleton sections:  0
+  size histogram (desc): 208
+  clutch mean overlap: 2.84 studs/edge
+  weak edges (1-stud): 121/269 (45%)
+  weak-edge diagnosis (n=121):
+    shell-shell: 48
+    shell-extra: 60
+    extra-extra: 13
+    brick-brick: 54
+    involving plate/tile: 67
