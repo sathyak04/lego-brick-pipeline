@@ -50,3 +50,14 @@ VERDICT: FAIL - 79 piece(s) need mid-air placement
     [43] 3010.dat @ (-20,-72,130)
     [44] 3004.dat @ (-160,-72,-30)
     ... +64 more
+VERDICT: NOT READY - 1 soft issue(s), score 94.3/100
+  components:
+    connectivity  1.00
+    collisions    1.00
+    balance       1.00
+    overhang      1.00
+    build_order   0.62
+    clutch        1.00
+  issues (highest impact first):
+    [soft] mid_air_pieces: 79 piece(s) need mid-air placement during assembly (-5.7 pts -> support_blocked_pieces)
+  not measured yet: part_count_bloat, shear_planes, micro_stress

@@ -32,6 +32,7 @@ from connectivity import (  # noqa: E402
 from balance import format_report as format_balance  # noqa: E402
 from overhang import format_overhang_report  # noqa: E402
 from build_order import format_build_order_report  # noqa: E402
+from scorecard import format_release_report  # noqa: E402
 from hollow_build import (  # noqa: E402
     HollowResult,
     build_hollow_from_mesh,
@@ -51,6 +52,7 @@ def _print_result(result: HollowResult) -> None:
     print(format_balance(result.balance))
     print(format_overhang_report(result.overhang, result.bricks))
     print(format_build_order_report(result.build_order, result.bricks))
+    print(format_release_report(result.release))
     verdict = "PASS" if result.ok else "FAIL"
     bal = "PASS" if result.balanced else "TIP"
     ov = "PASS" if result.supported else f"FAIL({len(result.overhang.unsupported_ids)})"
@@ -61,7 +63,7 @@ def _print_result(result: HollowResult) -> None:
         f"hollow={result.hollow_pct:.0f}% "
         f"weak={result.strength.weak_edges}/{result.strength.edge_count} "
         f"mean={result.strength.mean_overlap:.2f} balance={bal} overhang={ov} "
-        f"build={bo}"
+        f"build={bo} release={result.release.score:.1f}/100"
     )
 
 
@@ -79,7 +81,9 @@ def _write_report(path: Path, result: HollowResult, header: str) -> None:
         + "\n"
         + format_overhang_report(result.overhang, result.bricks)
         + "\n"
-        + format_build_order_report(result.build_order, result.bricks),
+        + format_build_order_report(result.build_order, result.bricks)
+        + "\n"
+        + format_release_report(result.release),
         encoding="utf-8",
     )
 
@@ -175,7 +179,7 @@ def main() -> None:
             f"collisions={r.stats['collisions']}  parts={len(r.bricks)}  "
             f"weak={100.0 * r.strength.weak_ratio:.0f}%  "
             f"mean={r.strength.mean_overlap:.2f}  balance={bal}  "
-            f"overhang={ov}  build={bo}"
+            f"overhang={ov}  build={bo}  release={r.release.score:.1f}/100"
         )
         if not r.ok:
             failed.append(r.name)

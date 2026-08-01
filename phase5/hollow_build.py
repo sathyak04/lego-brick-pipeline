@@ -28,6 +28,7 @@ from connectivity import (  # noqa: E402
 from balance import BalanceReport, check_balance  # noqa: E402
 from overhang import OverhangReport, check_overhangs  # noqa: E402
 from build_order import BuildOrderReport, check_build_order  # noqa: E402
+from scorecard import ReleaseReport, score_release  # noqa: E402
 from stabilize import add_balance_base  # noqa: E402
 from scaffold import (  # noqa: E402
     interior_voxels,
@@ -60,6 +61,7 @@ class HollowResult:
     balance: BalanceReport
     overhang: OverhangReport
     build_order: BuildOrderReport
+    release: ReleaseReport
     base_plates_added: int
 
     @property
@@ -81,6 +83,10 @@ class HollowResult:
     @property
     def buildable(self) -> bool:
         return self.build_order.buildable
+
+    @property
+    def release_ready(self) -> bool:
+        return self.release.release_ready
 
     @property
     def hollow_pct(self) -> float:
@@ -169,6 +175,17 @@ def build_hollow_from_solid(
     )
     overhang = check_overhangs(bricks)
     build_order = check_build_order(bricks)
+    release = score_release(
+        bricks=bricks,
+        connectivity=report,
+        strength=strength,
+        balance=balance,
+        overhang=overhang,
+        build_order=build_order,
+        collisions=stats.get("collisions", 0),
+        interior_count=len(interior),
+        solid_count=len(solid),
+    )
     mix: dict[str, int] = {}
     for b in bricks:
         mix[b.part_id] = mix.get(b.part_id, 0) + 1
@@ -199,6 +216,10 @@ def build_hollow_from_solid(
             else f"FAIL({len(build_order.blocked_ids)})"
         )
         print(f"  build_order={bo}")
+        print(
+            f"  release score={release.score:.1f}/100 "
+            f"next={release.next_action or 'none'}"
+        )
 
     return HollowResult(
         name=name,
@@ -215,6 +236,7 @@ def build_hollow_from_solid(
         balance=balance,
         overhang=overhang,
         build_order=build_order,
+        release=release,
         base_plates_added=base_added,
     )
 
