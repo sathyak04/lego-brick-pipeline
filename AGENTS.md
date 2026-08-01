@@ -22,9 +22,10 @@ Do **not** fail the demo on these. Improving them is a **separate session type**
 ## Locked baseline
 
 - Demo: `python -m phase5.demo_sphere`
-- Default diameter: **16** (`BASELINE_DIAMETER_STUDS` in `phase5/demo_sphere.py`)
+- Default diameter: **20** (`BASELINE_DIAMETER_STUDS` in `phase5/demo_sphere.py`)
 - Exit code **0** only on 1 section / 0 collisions; otherwise exit **1**
 - Do **not** raise the default diameter until that size stays PASS
+- Scale experiments: `python -m phase5.trial_sphere_scale 24`
 
 ## Studio suite (sphere + bunny + teapot)
 

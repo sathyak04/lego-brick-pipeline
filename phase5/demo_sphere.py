@@ -30,7 +30,7 @@ from hollow_build import (  # noqa: E402
 )
 
 # Locked green baseline — do not raise until this diameter stays PASS.
-BASELINE_DIAMETER_STUDS = 16.0
+BASELINE_DIAMETER_STUDS = 20.0
 SOFT_WEAK_RATIO = 0.50
 SOFT_MEAN_OVERLAP = 2.0
 

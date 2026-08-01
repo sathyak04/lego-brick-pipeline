@@ -37,7 +37,7 @@ from hollow_build import (  # noqa: E402
 )
 
 # Sphere stays on the locked baseline size; mesh shapes use a workable stud budget.
-SPHERE_DIAMETER = 16.0
+SPHERE_DIAMETER = 20.0
 BUNNY_STUDS = 24.0
 TEAPOT_STUDS = 22.0
 

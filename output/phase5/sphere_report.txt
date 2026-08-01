@@ -1,18 +1,18 @@
-Hollow sphere diameter=16.0 studs
-stats={'sections_before': 4, 'sections_after_under': 1, 'sections_after_cavity': 1, 'sections_after_staples': 1, 'sections_final': 1, 'under_plates': 0, 'cavity_plates': 5, 'staples': 0, 'plates': 5, 'tiles': 83, 'uncovered_studs': 0, 'collisions': 0, 'gap_fill_plates': 0, 'stripped_collisions': 0, 'pruned_staples': 124, 'weak_edges': 118, 'clutch_edges': 306, 'mean_overlap': 2.8562091503267975}
-mix={'2456.dat': 25, '3010.dat': 32, '3007.dat': 11, '3001.dat': 1, '3005.dat': 36, '3009.dat': 4, '3008.dat': 16, '3622.dat': 12, '3004.dat': 26, '3003.dat': 16, '3023.dat': 2, '3623.dat': 2, '3958.dat': 1, '3070b.dat': 40, '3069b.dat': 24, '6636.dat': 12, '63864.dat': 4, '1751.dat': 1, '69729.dat': 1, '87079.dat': 1}
+Hollow sphere diameter=20.0 studs
+stats={'sections_before': 3, 'sections_after_under': 1, 'sections_after_cavity': 1, 'sections_after_staples': 1, 'sections_final': 1, 'under_plates': 0, 'cavity_plates': 8, 'staples': 0, 'plates': 8, 'tiles': 128, 'uncovered_studs': 0, 'collisions': 0, 'gap_fill_plates': 0, 'stripped_collisions': 0, 'pruned_staples': 208, 'weak_edges': 265, 'clutch_edges': 590, 'mean_overlap': 2.4203389830508475}
+mix={'2456.dat': 28, '3010.dat': 45, '3007.dat': 24, '3001.dat': 5, '3009.dat': 2, '3004.dat': 91, '3005.dat': 73, '3002.dat': 4, '3622.dat': 11, '3008.dat': 16, '3003.dat': 47, '3034.dat': 2, '3020.dat': 2, '3023.dat': 4, '3069b.dat': 54, '3070b.dat': 44, '2431.dat': 8, '63864.dat': 12, '4162.dat': 4, '69729.dat': 3, '87079.dat': 2, '3068b.dat': 1}
 VERDICT: PASS - single connected clutch graph
-  total parts:         267
-  clutch edges:        306
+  total parts:         482
+  clutch edges:        590
   detached sections:   1
-  largest section:     267 parts
+  largest section:     482 parts
   singleton sections:  0
-  size histogram (desc): 267
-  clutch mean overlap: 2.86 studs/edge
-  weak edges (1-stud): 118/306 (39%)
-  weak-edge diagnosis (n=118):
-    shell-shell: 68
-    shell-extra: 50
+  size histogram (desc): 482
+  clutch mean overlap: 2.42 studs/edge
+  weak edges (1-stud): 265/590 (45%)
+  weak-edge diagnosis (n=265):
+    shell-shell: 209
+    shell-extra: 56
     extra-extra: 0
-    brick-brick: 68
-    involving plate/tile: 50
+    brick-brick: 209
+    involving plate/tile: 56
