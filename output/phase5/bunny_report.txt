@@ -50,7 +50,33 @@ VERDICT: FAIL - 172 piece(s) need mid-air placement
     [37] 3008.dat @ (-40,-48,50)
     [38] 3001.dat @ (180,-48,40)
     ... +157 more
-VERDICT: NOT READY - 2 soft issue(s), score 94.2/100
+VERDICT: PASS - no adjacent pairs replaceable by a single part
+  total parts:      509
+  removable parts:  0
+VERDICT: FAIL - 37 structurally fragile piece(s) in straight columns (93% staggered)
+  total parts:      509
+  vertical joins:   651
+  staggered joins:  603
+  aligned joins:    48
+  fragile pieces:   37
+  fragile samples (first 15):
+    [159] 3001.dat @ (-100,-168,-40)
+    [160] 3008.dat @ (170,-168,40)
+    [167] 3622.dat @ (10,-168,-110)
+    [200] 3005.dat @ (-210,-192,90)
+    [214] 3005.dat @ (-210,-216,90)
+    [323] 3622.dat @ (-150,-408,-150)
+    [335] 3005.dat @ (10,-456,-70)
+    [340] 3005.dat @ (-210,-240,90)
+    [369] 3070b.dat @ (-110,-32,-30)
+    [373] 3070b.dat @ (-30,-32,170)
+    [381] 3070b.dat @ (-150,-56,10)
+    [389] 63864.dat @ (10,-176,-110)
+    [391] 3070b.dat @ (90,-176,-90)
+    [398] 63864.dat @ (190,-200,30)
+    [419] 3070b.dat @ (150,-224,-30)
+    ... +22 more
+VERDICT: NOT READY - 3 soft issue(s), score 95.1/100
   components:
     connectivity  1.00
     collisions    1.00
@@ -58,7 +84,10 @@ VERDICT: NOT READY - 2 soft issue(s), score 94.2/100
     overhang      1.00
     build_order   0.66
     clutch        0.93
+    bloat         1.00
+    interlock     0.96
   issues (highest impact first):
-    [soft] mid_air_pieces: 172 piece(s) need mid-air placement during assembly (-5.1 pts -> support_blocked_pieces)
-    [soft] weak_clutch: 370/651 one-stud joins, mean overlap 2.12 (-0.7 pts -> strengthen_clutch)
-  not measured yet: part_count_bloat, shear_planes, micro_stress
+    [soft] mid_air_pieces: 172 piece(s) need mid-air placement during assembly (-4.1 pts -> support_blocked_pieces)
+    [soft] weak_clutch: 370/651 one-stud joins, mean overlap 2.12 (-0.5 pts -> strengthen_clutch)
+    [soft] shear_columns: 37 piece(s) in straight columns, 93% staggered joins (-0.3 pts -> stagger_seams)
+  not measured yet: micro_stress

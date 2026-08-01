@@ -9,23 +9,29 @@ Scoring model:
   Each validator becomes a component score in [0, 1], then a weighted sum
   scaled to 0-100. Weights sum to 1.0.
 
-    connectivity  0.25   hard gate — 1 clutch section
-    collisions    0.20   hard gate — 0 AABB intersections
-    balance       0.15   soft — CoM margin vs footprint
-    overhang      0.15   soft — pieces reachable from ground
-    build order   0.15   soft — pieces placeable bottom-up
-    clutch        0.10   soft — stud overlap strength
+    connectivity  0.22   hard gate — 1 clutch section
+    collisions    0.18   hard gate — 0 AABB intersections
+    balance       0.12   soft — CoM margin vs footprint
+    overhang      0.12   soft — pieces reachable from ground
+    build order   0.12   soft — pieces placeable bottom-up
+    clutch        0.08   soft — stud overlap strength
+    bloat         0.08   soft — parts removable by merging
+    interlock     0.08   soft — staggered seams / shear columns
 
   Hollowness is a hard gate but carries no weight (it is a construction
   property, not a quality dial).
 
 Hard-gate dominance:
-  A model failing any hard gate is capped at HARD_FAIL_CAP (40), which sits
-  below the 45-point floor of any model that passes both weighted hard
+  A model failing any hard gate is capped at HARD_FAIL_CAP (35), which sits
+  below the 40-point floor of any model that passes both weighted hard
   gates. So good soft numbers can never buy a release-ready verdict.
 
 Each issue carries an `impact` (points lost) and a `suggested_action` name,
 so the Phase 6 loop can always pick the highest-value fix to attempt next.
+
+Invariant: a score of 100 means release-ready. Every component that can
+raise an issue must lose points when it does, or a loop optimising the score
+would stall on a flagged model that already looks perfect.
 """
 
 from __future__ import annotations
@@ -37,26 +43,30 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "phase1"))
 
 from balance import BalanceReport  # noqa: E402
+from bloat import BloatReport  # noqa: E402
 from build_order import BuildOrderReport  # noqa: E402
 from connectivity import ClutchStrengthReport, ConnectivityReport  # noqa: E402
 from export_io import Brick  # noqa: E402
+from interlock import TARGET_STAGGER_RATIO, InterlockReport  # noqa: E402
 from overhang import OverhangReport  # noqa: E402
 
-W_CONNECTIVITY = 0.25
-W_COLLISIONS = 0.20
-W_BALANCE = 0.15
-W_OVERHANG = 0.15
-W_BUILD_ORDER = 0.15
-W_CLUTCH = 0.10
+W_CONNECTIVITY = 0.22
+W_COLLISIONS = 0.18
+W_BALANCE = 0.12
+W_OVERHANG = 0.12
+W_BUILD_ORDER = 0.12
+W_CLUTCH = 0.08
+W_BLOAT = 0.08
+W_INTERLOCK = 0.08
 
-HARD_FAIL_CAP = 40.0
+HARD_FAIL_CAP = 35.0
 
 # Soft clutch goals (match demo_sphere reporting).
 SOFT_WEAK_RATIO = 0.50
 SOFT_MEAN_OVERLAP = 2.0
 
 # Release Standards with no validator yet — the agent must know its blind spots.
-UNMEASURED = ("part_count_bloat", "shear_planes", "micro_stress")
+UNMEASURED = ("micro_stress",)
 
 
 @dataclass(frozen=True)
@@ -118,6 +128,8 @@ def score_release(
     balance: BalanceReport,
     overhang: OverhangReport,
     build_order: BuildOrderReport,
+    bloat: BloatReport,
+    interlock: InterlockReport,
     collisions: int,
     interior_count: int = 0,
     solid_count: int = 0,
@@ -143,6 +155,13 @@ def score_release(
     mean_term = _clamp01(strength.mean_overlap / SOFT_MEAN_OVERLAP)
     clutch_score = 0.5 * (weak_term + mean_term)
 
+    bloat_score = _clamp01(1.0 - bloat.bloat_ratio)
+    # Both terms matter: a mostly-bonded wall can still hide shear columns,
+    # and a flagged model must never be able to reach a perfect score.
+    stagger_term = _clamp01(interlock.stagger_ratio / TARGET_STAGGER_RATIO)
+    fragile_term = _clamp01(1.0 - len(interlock.fragile_ids) / n)
+    interlock_score = 0.5 * (stagger_term + fragile_term)
+
     components = {
         "connectivity": conn_score,
         "collisions": coll_score,
@@ -150,6 +169,8 @@ def score_release(
         "overhang": over_score,
         "build_order": build_score,
         "clutch": clutch_score,
+        "bloat": bloat_score,
+        "interlock": interlock_score,
     }
     weights = {
         "connectivity": W_CONNECTIVITY,
@@ -158,6 +179,8 @@ def score_release(
         "overhang": W_OVERHANG,
         "build_order": W_BUILD_ORDER,
         "clutch": W_CLUTCH,
+        "bloat": W_BLOAT,
+        "interlock": W_INTERLOCK,
     }
     score = 100.0 * sum(weights[k] * components[k] for k in weights)
 
@@ -253,6 +276,34 @@ def score_release(
                 suggested_action="strengthen_clutch",
             )
         )
+    if not bloat.lean:
+        soft.append(
+            Issue(
+                code="part_count_bloat",
+                severity="soft",
+                detail=(
+                    f"{bloat.wasted_parts} part(s) removable by merging "
+                    f"({100.0 * bloat.bloat_ratio:.1f}% of the set)"
+                ),
+                count=bloat.wasted_parts,
+                impact=lost("bloat"),
+                suggested_action="merge_bloat",
+            )
+        )
+    if not interlock.interlocked:
+        soft.append(
+            Issue(
+                code="shear_columns",
+                severity="soft",
+                detail=(
+                    f"{len(interlock.fragile_ids)} piece(s) in straight columns, "
+                    f"{100.0 * interlock.stagger_ratio:.0f}% staggered joins"
+                ),
+                count=len(interlock.fragile_ids),
+                impact=lost("interlock"),
+                suggested_action="stagger_seams",
+            )
+        )
 
     if hard:
         score = min(score, HARD_FAIL_CAP)
@@ -269,6 +320,9 @@ def score_release(
         "weak_edges": float(strength.weak_edges),
         "clutch_edges": float(strength.edge_count),
         "mean_overlap": strength.mean_overlap,
+        "removable_parts": float(bloat.wasted_parts),
+        "fragile_parts": float(len(interlock.fragile_ids)),
+        "stagger_ratio": interlock.stagger_ratio,
         "hollow_pct": 100.0 * interior_count / solid_count if solid_count else 0.0,
     }
 

@@ -10,9 +10,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "phase1"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from balance import BalanceReport  # noqa: E402
+from bloat import BloatReport, MergePair  # noqa: E402
 from build_order import BuildOrderReport  # noqa: E402
 from connectivity import ClutchStrengthReport, ConnectivityReport  # noqa: E402
 from export_io import Brick  # noqa: E402
+from interlock import InterlockReport  # noqa: E402
 from overhang import OverhangReport  # noqa: E402
 from scorecard import score_release  # noqa: E402
 
@@ -65,6 +67,10 @@ def _clean_args(n: int = 10) -> dict:
         ),
         build_order=BuildOrderReport(
             order=list(range(n)), blocked_ids=[], grounded_ids=[0]
+        ),
+        bloat=BloatReport(merge_pairs=[], part_count=n),
+        interlock=InterlockReport(
+            aligned_edges=0, staggered_edges=8, fragile_ids=[], part_count=n
         ),
         collisions=0,
         interior_count=50,
@@ -136,10 +142,75 @@ class TestScorecard(unittest.TestCase):
         r = score_release(**args)
         self.assertIn("not_hollow", [i.code for i in r.hard_failures])
 
+    def test_bloat_is_a_soft_issue_with_merge_action(self) -> None:
+        args = _clean_args()
+        args["bloat"] = BloatReport(
+            merge_pairs=[
+                MergePair(a=0, b=1, replacement="3010.dat", detail="1x2 + 1x2 -> 4x1")
+            ],
+            part_count=10,
+        )
+        r = score_release(**args)
+        issue = next(i for i in r.soft_issues if i.code == "part_count_bloat")
+        self.assertEqual(issue.suggested_action, "merge_bloat")
+        self.assertFalse(r.release_ready)
+
+    def test_shear_columns_are_a_soft_issue(self) -> None:
+        args = _clean_args()
+        args["interlock"] = InterlockReport(
+            aligned_edges=8, staggered_edges=0, fragile_ids=[1, 2], part_count=10
+        )
+        r = score_release(**args)
+        issue = next(i for i in r.soft_issues if i.code == "shear_columns")
+        self.assertEqual(issue.suggested_action, "stagger_seams")
+        self.assertLess(r.components["interlock"], 1.0)
+
+    def test_flagged_model_cannot_reach_a_perfect_score(self) -> None:
+        """Mostly-staggered walls must still lose points for shear columns."""
+        args = _clean_args()
+        args["interlock"] = InterlockReport(
+            aligned_edges=1, staggered_edges=99, fragile_ids=[3], part_count=10
+        )
+        r = score_release(**args)
+        self.assertFalse(r.release_ready)
+        self.assertLess(r.score, 100.0)
+        self.assertGreater(
+            next(i for i in r.soft_issues if i.code == "shear_columns").impact, 0.0
+        )
+
     def test_blind_spots_reported(self) -> None:
         r = score_release(**_clean_args())
-        self.assertIn("part_count_bloat", r.unmeasured)
-        self.assertIn("shear_planes", r.unmeasured)
+        self.assertIn("micro_stress", r.unmeasured)
+        self.assertNotIn("part_count_bloat", r.unmeasured)
+        self.assertNotIn("shear_planes", r.unmeasured)
+
+    def test_hard_gate_cap_sits_below_hard_passing_floor(self) -> None:
+        """Any hard failure must score below the worst hard-passing model."""
+        worst_soft = _clean_args()
+        worst_soft["balance"] = _balance(tip=True)
+        worst_soft["overhang"] = OverhangReport(
+            grounded_ids=[], supported_ids=[], unsupported_ids=list(range(10))
+        )
+        worst_soft["build_order"] = BuildOrderReport(
+            order=[], blocked_ids=list(range(10)), grounded_ids=[]
+        )
+        worst_soft["strength"] = _strength(edges=20, weak=20, mean=0.0)
+        worst_soft["bloat"] = BloatReport(
+            merge_pairs=[
+                MergePair(a=i, b=i + 1, replacement="3010.dat", detail="x")
+                for i in range(10)
+            ],
+            part_count=10,
+        )
+        worst_soft["interlock"] = InterlockReport(
+            aligned_edges=8, staggered_edges=0, fragile_ids=[1], part_count=10
+        )
+        best_hard_fail = _clean_args()
+        best_hard_fail["collisions"] = 1
+        self.assertLess(
+            score_release(**best_hard_fail).score,
+            score_release(**worst_soft).score,
+        )
 
 
 if __name__ == "__main__":

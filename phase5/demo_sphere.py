@@ -25,6 +25,8 @@ from connectivity import (  # noqa: E402
 from balance import format_report as format_balance  # noqa: E402
 from overhang import format_overhang_report  # noqa: E402
 from build_order import format_build_order_report  # noqa: E402
+from bloat import format_bloat_report  # noqa: E402
+from interlock import format_interlock_report  # noqa: E402
 from scorecard import format_release_report  # noqa: E402
 from hollow_build import (  # noqa: E402
     PASS_COLLISIONS,
@@ -58,6 +60,8 @@ def main() -> None:
     print(format_balance(result.balance))
     print(format_overhang_report(result.overhang, result.bricks))
     print(format_build_order_report(result.build_order, result.bricks))
+    print(format_bloat_report(result.bloat, result.bricks))
+    print(format_interlock_report(result.interlock, result.bricks))
     print(format_release_report(result.release))
 
     export_bricks_to_io(
@@ -78,6 +82,10 @@ def main() -> None:
         + format_overhang_report(result.overhang, result.bricks)
         + "\n"
         + format_build_order_report(result.build_order, result.bricks)
+        + "\n"
+        + format_bloat_report(result.bloat, result.bricks)
+        + "\n"
+        + format_interlock_report(result.interlock, result.bricks)
         + "\n"
         + format_release_report(result.release),
         encoding="utf-8",

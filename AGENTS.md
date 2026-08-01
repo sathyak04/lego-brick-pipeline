@@ -16,15 +16,18 @@ Hollow work is green only when **all** hold:
 - **balance / tip** — CoM vs ground footprint; auto-adds an under-plate base when tipping if possible
 - **overhang** — pieces unreachable from ground via clutch (`overhang.check_overhangs`)
 - **build order** — bottom-up placement via vertical stud support only (`build_order.check_build_order`); mid-air / side-cling pieces are soft FAIL
+- **part-count bloat** — adjacent pairs replaceable by one catalog part (`bloat.check_bloat`); audits the packer's output rather than trusting it
+- **interlocking / shear planes** — aligned vs staggered vertical joins and fragile straight columns (`interlock.check_interlock`)
 - **release score** — all validators folded into one 0–100 audit (`scorecard.score_release`) with a prioritized issue list; each issue names a `suggested_action` for the future Phase 6 loop
 
 Do **not** fail demos on soft metrics. Improving them is a separate session type.
 
 ### Scorecard contract (Phase 6 reads this)
 
-- Hard gates (1 section, 0 collisions, hollow) cap the score at 40, below the 45-point floor of any hard-passing model — soft polish can never buy a READY verdict.
+- Hard gates (1 section, 0 collisions, hollow) cap the score at 35, below the 40-point floor of any hard-passing model — soft polish can never buy a READY verdict.
+- A score of 100 means release-ready. Any component that can raise an issue must lose points when it does, or a score-optimising loop stalls on a flagged model that already looks perfect.
 - `report.next_action` is the highest-impact fix to attempt next.
-- `report.unmeasured` lists Release Standards with no validator yet: **part_count_bloat**, **shear_planes**, **micro_stress**. Do not claim those are audited.
+- `report.unmeasured` is the blind-spot list — currently **micro_stress** only. Do not claim unmeasured standards are audited.
 
 ## Locked baseline
 

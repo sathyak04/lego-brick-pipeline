@@ -50,7 +50,33 @@ VERDICT: FAIL - 322 piece(s) need mid-air placement
     [25] 2456.dat @ (0,-72,120)
     [26] 2456.dat @ (120,-72,0)
     ... +307 more
-VERDICT: NOT READY - 1 soft issue(s), score 90.0/100
+VERDICT: PASS - no adjacent pairs replaceable by a single part
+  total parts:      482
+  removable parts:  0
+VERDICT: FAIL - 44 structurally fragile piece(s) in straight columns (88% staggered)
+  total parts:      482
+  vertical joins:   590
+  staggered joins:  522
+  aligned joins:    68
+  fragile pieces:   44
+  fragile samples (first 15):
+    [159] 3004.dat @ (-120,-192,-130)
+    [162] 3004.dat @ (120,-192,130)
+    [171] 2456.dat @ (-180,-216,0)
+    [172] 2456.dat @ (0,-216,-180)
+    [173] 2456.dat @ (0,-216,180)
+    [174] 2456.dat @ (180,-216,0)
+    [175] 3003.dat @ (-160,-216,-80)
+    [176] 3003.dat @ (-160,-216,80)
+    [177] 3003.dat @ (-80,-216,-160)
+    [178] 3003.dat @ (-80,-216,160)
+    [179] 3003.dat @ (80,-216,-160)
+    [180] 3003.dat @ (80,-216,160)
+    [181] 3003.dat @ (160,-216,-80)
+    [182] 3003.dat @ (160,-216,80)
+    [183] 3004.dat @ (-140,-216,-110)
+    ... +29 more
+VERDICT: NOT READY - 2 soft issue(s), score 91.6/100
   components:
     connectivity  1.00
     collisions    1.00
@@ -58,6 +84,9 @@ VERDICT: NOT READY - 1 soft issue(s), score 90.0/100
     overhang      1.00
     build_order   0.33
     clutch        1.00
+    bloat         1.00
+    interlock     0.95
   issues (highest impact first):
-    [soft] mid_air_pieces: 322 piece(s) need mid-air placement during assembly (-10.0 pts -> support_blocked_pieces)
-  not measured yet: part_count_bloat, shear_planes, micro_stress
+    [soft] mid_air_pieces: 322 piece(s) need mid-air placement during assembly (-8.0 pts -> support_blocked_pieces)
+    [soft] shear_columns: 44 piece(s) in straight columns, 88% staggered joins (-0.4 pts -> stagger_seams)
+  not measured yet: micro_stress

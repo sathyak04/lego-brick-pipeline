@@ -28,6 +28,8 @@ from connectivity import (  # noqa: E402
 from balance import BalanceReport, check_balance  # noqa: E402
 from overhang import OverhangReport, check_overhangs  # noqa: E402
 from build_order import BuildOrderReport, check_build_order  # noqa: E402
+from bloat import BloatReport, check_bloat  # noqa: E402
+from interlock import InterlockReport, check_interlock  # noqa: E402
 from scorecard import ReleaseReport, score_release  # noqa: E402
 from stabilize import add_balance_base  # noqa: E402
 from scaffold import (  # noqa: E402
@@ -61,6 +63,8 @@ class HollowResult:
     balance: BalanceReport
     overhang: OverhangReport
     build_order: BuildOrderReport
+    bloat: BloatReport
+    interlock: InterlockReport
     release: ReleaseReport
     base_plates_added: int
 
@@ -175,6 +179,8 @@ def build_hollow_from_solid(
     )
     overhang = check_overhangs(bricks)
     build_order = check_build_order(bricks)
+    bloat = check_bloat(bricks)
+    interlock = check_interlock(bricks)
     release = score_release(
         bricks=bricks,
         connectivity=report,
@@ -182,6 +188,8 @@ def build_hollow_from_solid(
         balance=balance,
         overhang=overhang,
         build_order=build_order,
+        bloat=bloat,
+        interlock=interlock,
         collisions=stats.get("collisions", 0),
         interior_count=len(interior),
         solid_count=len(solid),
@@ -217,6 +225,11 @@ def build_hollow_from_solid(
         )
         print(f"  build_order={bo}")
         print(
+            f"  bloat={bloat.wasted_parts} removable "
+            f"interlock={100.0 * interlock.stagger_ratio:.0f}% staggered "
+            f"fragile={len(interlock.fragile_ids)}"
+        )
+        print(
             f"  release score={release.score:.1f}/100 "
             f"next={release.next_action or 'none'}"
         )
@@ -236,6 +249,8 @@ def build_hollow_from_solid(
         balance=balance,
         overhang=overhang,
         build_order=build_order,
+        bloat=bloat,
+        interlock=interlock,
         release=release,
         base_plates_added=base_added,
     )
