@@ -1,0 +1,13 @@
+---
+description: Visual polish only after PASS — no reconnect edits
+globs: phase5/demo_sphere.py
+alwaysApply: false
+---
+
+# Visual polish sessions
+
+- Only polish models that already PASS (1 section / 0 collisions).
+- Allowed: colors, cutaway presentation, export naming, tile cosmetics that do not break clutch.
+- Forbidden in the same session: reconnect order, spine-nuke, MST, staple flood, raising diameter.
+- If a visual change breaks 1/0, revert it or open a separate gap-fill session — do not “fix connectivity later” in the polish chat.
+- Exports live under `output/phase5/` (`sphere_full.io`, `sphere_half_cut.io`).

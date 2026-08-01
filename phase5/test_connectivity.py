@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from catalog import BRICK_H, STUD  # noqa: E402
 from export_io import Brick  # noqa: E402
-from connectivity import check_connectivity  # noqa: E402
+from connectivity import check_connectivity, clutch_strength, stud_overlap_count  # noqa: E402
 
 
 def brick_at(part: str, x: float, y: float, z: float) -> Brick:
@@ -58,6 +58,50 @@ class TestConnectivity(unittest.TestCase):
         b = brick_at("3005.dat", 200, -BRICK_H * 6, 0)
         r = check_connectivity([ground, a, b])
         self.assertEqual(r.section_count, 2)
+
+    def test_stud_overlap_1x1_stack(self) -> None:
+        lower = brick_at("3005.dat", 0, -BRICK_H, 0)
+        upper = brick_at("3005.dat", 0, -2 * BRICK_H, 0)
+        self.assertEqual(stud_overlap_count(lower, upper), 1)
+        s = clutch_strength([lower, upper])
+        self.assertEqual(s.edge_count, 1)
+        self.assertEqual(s.weak_edges, 1)
+        self.assertAlmostEqual(s.mean_overlap, 1.0)
+
+    def test_stud_overlap_1x2_on_two_1x1(self) -> None:
+        left = brick_at("3005.dat", 0, -BRICK_H, 0)
+        right = brick_at("3005.dat", STUD, -BRICK_H, 0)
+        top = brick_at("3004.dat", STUD / 2, -2 * BRICK_H, 0)
+        self.assertEqual(stud_overlap_count(left, top), 1)
+        self.assertEqual(stud_overlap_count(right, top), 1)
+        s = clutch_strength([left, right, top])
+        self.assertEqual(s.edge_count, 2)
+        self.assertEqual(s.weak_edges, 2)
+
+    def test_stud_overlap_full_1x2_stack(self) -> None:
+        lower = brick_at("3004.dat", STUD / 2, -BRICK_H, 0)
+        upper = brick_at("3004.dat", STUD / 2, -2 * BRICK_H, 0)
+        self.assertEqual(stud_overlap_count(lower, upper), 2)
+        s = clutch_strength([lower, upper])
+        self.assertEqual(s.weak_edges, 0)
+        self.assertAlmostEqual(s.mean_overlap, 2.0)
+
+    def test_classify_weak_shell_vs_extra(self) -> None:
+        from connectivity import classify_weak_edges
+
+        # Two shell 1x1 stacked (weak) + one extra 1x1 on the upper
+        # (extra is third brick; shell_count=2)
+        lower = brick_at("3005.dat", 0, -BRICK_H, 0)
+        upper = brick_at("3005.dat", 0, -2 * BRICK_H, 0)
+        # side stack as "extra" floating — use another column clutched via plate
+        # Keep it simple: only shell↔shell weak edge
+        r = check_connectivity([lower, upper])
+        s = clutch_strength([lower, upper], r)
+        tallies = classify_weak_edges(
+            [lower, upper], report=r, strength=s, shell_count=2
+        )
+        self.assertEqual(tallies["weak_shell_shell"], 1)
+        self.assertEqual(tallies["weak_shell_extra"], 0)
 
 
 if __name__ == "__main__":

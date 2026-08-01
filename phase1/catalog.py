@@ -29,6 +29,14 @@ class PartSpec:
     ox: float = 0.0
     oz: float = 0.0
     studs: tuple[tuple[float, float], ...] | None = None
+    # Occupied cells in the W×D grid (i, j) with (0,0)=min corner.
+    # None → full rectangle. Used for L-corners etc.
+    occupied: tuple[tuple[int, int], ...] | None = None
+
+    def is_rectangular(self) -> bool:
+        if self.occupied is None:
+            return True
+        return len(self.occupied) == self.width * self.depth
 
 
 # Explicit (part_id, name, w, d, height, kind) — one row per LDraw file.
@@ -90,6 +98,29 @@ def _build_catalog() -> dict[str, PartSpec]:
         "3040.dat", "Slope 45 2x1", 2, 1, BRICK_H, kind="slope", oz=0.5,
         studs=((-0.5, 0.0), (0.5, 0.0)),
     )
+    # L-corners: bounding box 2x2, three studs (missing +X/+Z corner in local grid)
+    _corner_studs = ((-0.5, -0.5), (0.5, -0.5), (-0.5, 0.5))
+    _corner_cells = ((0, 0), (1, 0), (0, 1))
+    out["2357.dat"] = PartSpec(
+        "2357.dat",
+        "Brick 2x2 Corner",
+        2,
+        2,
+        BRICK_H,
+        kind="brick",
+        studs=_corner_studs,
+        occupied=_corner_cells,
+    )
+    out["2420.dat"] = PartSpec(
+        "2420.dat",
+        "Plate 2x2 Corner",
+        2,
+        2,
+        PLATE_H,
+        kind="plate",
+        studs=_corner_studs,
+        occupied=_corner_cells,
+    )
     return out
 
 
@@ -97,6 +128,8 @@ CATALOG: dict[str, PartSpec] = _build_catalog()
 
 IDENTITY = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
 YAW_90 = (0.0, 0.0, 1.0, 0.0, 1.0, 0.0, -1.0, 0.0, 0.0)
+YAW_180 = (-1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, -1.0)
+YAW_270 = (0.0, 0.0, -1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0)
 
 
 @dataclass(frozen=True)
@@ -132,9 +165,14 @@ def iter_parts(kind: PartKind | None = None) -> Iterable[PartSpec]:
 
 
 def packing_templates(kind: PartKind) -> list[PackTemplate]:
-    """Oriented footprints for greedy packing, largest area first."""
+    """Oriented rectangular footprints for greedy packing, largest area first.
+
+    Non-rectangular parts (L-corners) are skipped — they need an L-packer.
+    """
     out: list[PackTemplate] = []
     for spec in iter_parts(kind):
+        if not spec.is_rectangular():
+            continue
         out.append(PackTemplate(spec.part_id, spec.width, spec.depth, IDENTITY))
         if spec.width != spec.depth:
             out.append(PackTemplate(spec.part_id, spec.width, spec.depth, YAW_90))

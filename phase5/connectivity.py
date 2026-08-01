@@ -53,6 +53,26 @@ COMPONENT_COLORS = [
 
 
 @dataclass(frozen=True)
+class ClutchStrengthReport:
+    """Stud-overlap strength on clutch edges (Studio clutch-power *intent*).
+
+    Not bit-exact to Studio's Clutch Power Issues count. weak_edges ≈ joins
+    that lock only one stud — the usual soft-connection complaint.
+    """
+
+    edge_count: int
+    weak_edges: int  # overlap == 1
+    mean_overlap: float
+    overlaps: tuple[int, ...]  # per edge, same order as ConnectivityReport.edges
+
+    @property
+    def weak_ratio(self) -> float:
+        if self.edge_count <= 0:
+            return 0.0
+        return self.weak_edges / self.edge_count
+
+
+@dataclass(frozen=True)
 class ConnectivityReport:
     edges: list[tuple[int, int]]
     components: list[list[int]]  # each = sorted brick indices
@@ -108,11 +128,33 @@ def _sites_match(a: list[tuple[float, float]], b: list[tuple[float, float]]) -> 
     return False
 
 
+def _count_site_matches(
+    a: list[tuple[float, float]], b: list[tuple[float, float]]
+) -> int:
+    """How many distinct stud sites in `a` align with distinct sites in `b`."""
+    used_b: set[int] = set()
+    count = 0
+    for ax, az in a:
+        for bi, (bx, bz) in enumerate(b):
+            if bi in used_b:
+                continue
+            if abs(ax - bx) <= EPS_XZ and abs(az - bz) <= EPS_XZ:
+                used_b.add(bi)
+                count += 1
+                break
+    return count
+
+
+def stud_overlap_count(below: Brick, above: Brick) -> int:
+    """Number of matching stud↔tube sites when `above` sits on `below`."""
+    if abs(_top(below) - _bottom(above)) > EPS_Y:
+        return 0
+    return _count_site_matches(world_stud_sites(below), world_stud_sites(above))
+
+
 def _clutch(below: Brick, above: Brick) -> bool:
     """True if `above` tubes sit on `below` studs (vertical stack)."""
-    if abs(_top(below) - _bottom(above)) > EPS_Y:
-        return False
-    return _sites_match(world_stud_sites(below), world_stud_sites(above))
+    return stud_overlap_count(below, above) >= 1
 
 
 def find_clutch_edges(bricks: list[Brick]) -> list[tuple[int, int]]:
@@ -197,7 +239,107 @@ def check_connectivity(bricks: list[Brick]) -> ConnectivityReport:
     )
 
 
-def format_connectivity_report(report: ConnectivityReport, bricks: list[Brick]) -> str:
+def clutch_strength(
+    bricks: list[Brick],
+    report: ConnectivityReport | None = None,
+) -> ClutchStrengthReport:
+    """Per-edge stud overlap stats for an existing (or freshly computed) graph."""
+    if report is None:
+        report = check_connectivity(bricks)
+    overlaps: list[int] = []
+    for i, j in report.edges:
+        a, b = bricks[i], bricks[j]
+        # Edge is undirected; count with correct below/above orientation.
+        if abs(_top(a) - _bottom(b)) <= EPS_Y:
+            overlaps.append(stud_overlap_count(a, b))
+        elif abs(_top(b) - _bottom(a)) <= EPS_Y:
+            overlaps.append(stud_overlap_count(b, a))
+        else:
+            overlaps.append(0)
+    n = len(overlaps)
+    weak = sum(1 for o in overlaps if o == 1)
+    mean = (sum(overlaps) / n) if n else 0.0
+    return ClutchStrengthReport(
+        edge_count=n,
+        weak_edges=weak,
+        mean_overlap=mean,
+        overlaps=tuple(overlaps),
+    )
+
+
+def classify_weak_edges(
+    bricks: list[Brick],
+    *,
+    report: ConnectivityReport | None = None,
+    strength: ClutchStrengthReport | None = None,
+    shell_count: int = 0,
+) -> dict[str, int]:
+    """Count weak (1-stud) edges by role.
+
+    `shell_count` = number of leading bricks that came from the packed shell
+    (finish_shell_surface returns shell + extras).
+    """
+    if report is None:
+        report = check_connectivity(bricks)
+    if strength is None:
+        strength = clutch_strength(bricks, report)
+
+    shell_idx = set(range(max(0, shell_count)))
+    tallies = {
+        "weak_shell_shell": 0,
+        "weak_shell_extra": 0,
+        "weak_extra_extra": 0,
+        "weak_brick_brick": 0,
+        "weak_brick_plate": 0,
+        "weak_other": 0,
+    }
+    for (i, j), ov in zip(report.edges, strength.overlaps):
+        if ov != 1:
+            continue
+        i_shell = i in shell_idx
+        j_shell = j in shell_idx
+        if i_shell and j_shell:
+            tallies["weak_shell_shell"] += 1
+        elif i_shell or j_shell:
+            tallies["weak_shell_extra"] += 1
+        else:
+            tallies["weak_extra_extra"] += 1
+
+        ki = get_part(bricks[i].part_id).kind
+        kj = get_part(bricks[j].part_id).kind
+        kinds = {ki, kj}
+        if kinds <= {"brick"}:
+            tallies["weak_brick_brick"] += 1
+        elif "plate" in kinds or "tile" in kinds:
+            tallies["weak_brick_plate"] += 1
+        else:
+            tallies["weak_other"] += 1
+    return tallies
+
+
+def format_weak_edge_diagnosis(tallies: dict[str, int]) -> str:
+    total = (
+        tallies.get("weak_shell_shell", 0)
+        + tallies.get("weak_shell_extra", 0)
+        + tallies.get("weak_extra_extra", 0)
+    )
+    lines = [
+        f"  weak-edge diagnosis (n={total}):",
+        f"    shell-shell: {tallies.get('weak_shell_shell', 0)}",
+        f"    shell-extra: {tallies.get('weak_shell_extra', 0)}",
+        f"    extra-extra: {tallies.get('weak_extra_extra', 0)}",
+        f"    brick-brick: {tallies.get('weak_brick_brick', 0)}",
+        f"    involving plate/tile: {tallies.get('weak_brick_plate', 0)}",
+    ]
+    return "\n".join(lines)
+
+
+def format_connectivity_report(
+    report: ConnectivityReport,
+    bricks: list[Brick],
+    *,
+    strength: ClutchStrengthReport | None = None,
+) -> str:
     sizes = sorted((len(c) for c in report.components), reverse=True)
     lines = [
         f"VERDICT: {report.verdict}",
@@ -211,6 +353,15 @@ def format_connectivity_report(report: ConnectivityReport, bricks: list[Brick]) 
         top = ", ".join(str(s) for s in sizes[:12])
         more = f" ... +{len(sizes) - 12} more" if len(sizes) > 12 else ""
         lines.append(f"  size histogram (desc): {top}{more}")
+    if strength is None:
+        strength = clutch_strength(bricks, report)
+    lines.extend(
+        [
+            f"  clutch mean overlap: {strength.mean_overlap:.2f} studs/edge",
+            f"  weak edges (1-stud): {strength.weak_edges}/{strength.edge_count}"
+            f" ({100.0 * strength.weak_ratio:.0f}%)",
+        ]
+    )
     return "\n".join(lines)
 
 

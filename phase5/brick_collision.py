@@ -91,6 +91,35 @@ class CollisionWorld:
         self.add(candidate)
         return True
 
+    def collides_flat(self, candidate: Brick) -> bool:
+        """True if candidate overlaps a plate/tile (ignore brick AABBs).
+
+        1x1 staples often false-positive against neighboring brick boxes; we
+        still must never punch through plates/tiles.
+        """
+        box = brick_aabb(candidate)
+        for b, other in zip(self.bricks, self.boxes):
+            if get_part(b.part_id).kind not in ("plate", "tile"):
+                continue
+            if box.overlaps(other):
+                return True
+        return False
+
+    def collides_except(
+        self,
+        candidate: Brick,
+        ignore: set[int] | None = None,
+    ) -> bool:
+        """Full AABB collide, skipping bricks whose indices are in `ignore`."""
+        box = brick_aabb(candidate)
+        skip = ignore or set()
+        for i, other in enumerate(self.boxes):
+            if i in skip:
+                continue
+            if box.overlaps(other):
+                return True
+        return False
+
     def truncate(self, n: int) -> None:
         """Keep only the first n bricks/boxes."""
         self.bricks = self.bricks[:n]
@@ -104,9 +133,14 @@ def strip_colliding_extras(
 
     Brick-kind staples (1x1 fills) are kept if their stud cell is unique;
     fused *strips* are what we strip. Shell is never removed.
+
+    Never increases clutch section count — colliding plates that are required
+    for connectivity are kept (equator under-bridges often AABB-touch bricks).
     """
     from catalog import get_part  # local to avoid cycles at import
+    from connectivity import check_connectivity
 
+    before = check_connectivity(shell + extras).section_count
     index = CollisionWorld(shell)
     kept: list[Brick] = []
     removed = 0
@@ -119,21 +153,52 @@ def strip_colliding_extras(
         else:
             bricks.append(b)
 
-    # Staples first — reject only true AABB overlap with shell/earlier staples
+    # Staples first (vertical clutch spines), skip duplicate 1x1 cells
+    seen_cells: set[tuple[int, int, int]] = set()
     for b in bricks:
+        if b.part_id == "3005.dat":
+            ix = int(round(b.x / 20.0 - 0.5))
+            iz = int(round(b.z / 20.0 - 0.5))
+            iy = int(round(-b.y / 24.0 - 1.0))
+            cell = (ix, iy, iz)
+            if cell in seen_cells:
+                removed += 1
+                continue
+            seen_cells.add(cell)
         if index.collides(b):
             removed += 1
             continue
         index.add(b)
         kept.append(b)
 
-    # Plates/tiles must not fuse
-    for b in strips:
+    # Plates then tiles — drop fusers only when connectivity does not worsen
+    plates = [b for b in strips if get_part(b.part_id).kind == "plate"]
+    tiles = [b for b in strips if get_part(b.part_id).kind == "tile"]
+    deferred_plates: list[Brick] = []
+    for b in plates:
+        if index.collides(b):
+            deferred_plates.append(b)
+            removed += 1
+            continue
+        index.add(b)
+        kept.append(b)
+    for b in tiles:
         if index.collides(b):
             removed += 1
             continue
         index.add(b)
         kept.append(b)
+
+    after = check_connectivity(shell + kept).section_count
+    if after > before and deferred_plates:
+        # Restore colliding plates needed for clutch (under-bridges)
+        for b in deferred_plates:
+            kept.append(b)
+            removed -= 1
+        after = check_connectivity(shell + kept).section_count
+    if after > before:
+        # Fall back to original extras — connectivity wins over clean AABB
+        return list(extras), 0
     return kept, removed
 
 

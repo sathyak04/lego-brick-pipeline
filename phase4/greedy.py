@@ -93,54 +93,51 @@ def _consume(occ: set[tuple[int, int]], ix: int, iz: int, w: int, d: int) -> Non
             occ.discard((x, z))
 
 
+def _bond_overlap(
+    below: set[tuple[int, int]] | None,
+    ix: int,
+    iz: int,
+    w: int,
+    d: int,
+) -> int:
+    """How many footprint studs sit above an occupied cell on the layer below."""
+    if not below:
+        return 0
+    n = 0
+    for x in range(ix, ix + w):
+        for z in range(iz, iz + d):
+            if (x, z) in below:
+                n += 1
+    return n
+
+
 def consolidate_layer(
     cells: set[tuple[int, int]],
     iy: int,
     color: int,
     stagger: bool,
+    below_cells: set[tuple[int, int]] | None = None,
+    *,
+    bond: bool = True,
 ) -> list[Placement]:
-    """Greedy pack one Z/X layer of occupied studs."""
+    """Greedy pack one Z/X layer of occupied studs.
+
+    When `bond` is True and `below_cells` is set, prefer placements that share
+    more studs with the layer below (stretcher bond) while still favoring
+    larger footprints when bond ties.
+    """
     occ = set(cells)
     placed: list[Placement] = []
 
-    # Stagger: on odd layers, iterate x starting at 1 to shift seams.
+    # Stagger: on odd layers, prefer scan offsets so vertical seams don't line up.
     x_bias = 1 if (stagger and iy % 2 == 1) else 0
 
-    for tmpl in _templates():
-        w, d = tmpl.world_w, tmpl.world_d
-        if not occ:
-            break
-        xs = sorted({x for x, _ in occ})
-        zs = sorted({z for _, z in occ})
-        # Rotate starting x for stagger without missing cells
-        if x_bias:
-            xs = [x for x in xs if (x - x_bias) % 2 == 0] + [
-                x for x in xs if (x - x_bias) % 2 != 0
-            ]
-
-        progress = True
-        while progress and occ:
-            progress = False
-            for ix in list(xs):
-                for iz in zs:
-                    if (ix, iz) not in occ:
-                        continue
-                    if _fits(occ, ix, iz, w, d):
-                        placed.append(
-                            Placement(
-                                part_id=tmpl.part_id,
-                                color=color,
-                                ix=ix,
-                                iy=iy,
-                                iz=iz,
-                                w=w,
-                                d=d,
-                                rot=tmpl.rot,
-                            )
-                        )
-                        _consume(occ, ix, iz, w, d)
-                        progress = True
-            # refresh candidate coords
+    if not bond or below_cells is None:
+        # Legacy largest-first scan (fast path / layer 0)
+        for tmpl in _templates():
+            w, d = tmpl.world_w, tmpl.world_d
+            if not occ:
+                break
             xs = sorted({x for x, _ in occ})
             zs = sorted({z for _, z in occ})
             if x_bias:
@@ -148,8 +145,82 @@ def consolidate_layer(
                     x for x in xs if (x - x_bias) % 2 != 0
                 ]
 
+            progress = True
+            while progress and occ:
+                progress = False
+                for ix in list(xs):
+                    for iz in zs:
+                        if (ix, iz) not in occ:
+                            continue
+                        if _fits(occ, ix, iz, w, d):
+                            placed.append(
+                                Placement(
+                                    part_id=tmpl.part_id,
+                                    color=color,
+                                    ix=ix,
+                                    iy=iy,
+                                    iz=iz,
+                                    w=w,
+                                    d=d,
+                                    rot=tmpl.rot,
+                                )
+                            )
+                            _consume(occ, ix, iz, w, d)
+                            progress = True
+                xs = sorted({x for x, _ in occ})
+                zs = sorted({z for _, z in occ})
+                if x_bias:
+                    xs = [x for x in xs if (x - x_bias) % 2 == 0] + [
+                        x for x in xs if (x - x_bias) % 2 != 0
+                    ]
+    else:
+        # Bond-aware: repeatedly pick the placement with best
+        # (overlap_with_below, area), then stagger bias as a tie-break.
+        templates = _templates()
+        while occ:
+            best: tuple[int, int, int, int, int, Template] | None = None
+            best_key: tuple[int, int, int, int, int] | None = None
+            for tmpl in templates:
+                w, d = tmpl.world_w, tmpl.world_d
+                if w * d > len(occ):
+                    continue
+                xs = sorted({x for x, _ in occ})
+                zs = sorted({z for _, z in occ})
+                for ix in xs:
+                    for iz in zs:
+                        if (ix, iz) not in occ:
+                            continue
+                        if not _fits(occ, ix, iz, w, d):
+                            continue
+                        bond_n = _bond_overlap(below_cells, ix, iz, w, d)
+                        area = w * d
+                        stagger_pref = 0
+                        if x_bias and (ix - x_bias) % 2 == 0:
+                            stagger_pref = 1
+                        key = (bond_n, area, stagger_pref, -ix, -iz)
+                        cand = (bond_n, area, stagger_pref, ix, iz, tmpl)
+                        if best_key is None or key > best_key:
+                            best = cand
+                            best_key = key
+            if best is None:
+                break
+            _bn, _ar, _sp, ix, iz, tmpl = best
+            w, d = tmpl.world_w, tmpl.world_d
+            placed.append(
+                Placement(
+                    part_id=tmpl.part_id,
+                    color=color,
+                    ix=ix,
+                    iy=iy,
+                    iz=iz,
+                    w=w,
+                    d=d,
+                    rot=tmpl.rot,
+                )
+            )
+            _consume(occ, ix, iz, w, d)
+
     if occ:
-        # Should be empty if 1x1 template exists; belt-and-suspenders
         for ix, iz in sorted(occ):
             placed.append(
                 Placement("3005.dat", color, ix, iy, iz, 1, 1, IDENTITY)
@@ -163,15 +234,33 @@ def consolidate_voxels(
     voxels: list[Voxel],
     color: int = 4,
     stagger: bool = True,
+    *,
+    bond: bool = True,
 ) -> list[Placement]:
-    """Merge all layers of 1x1 voxels into larger bricks."""
+    """Merge all layers of 1x1 voxels into larger bricks.
+
+    When `bond` is True, each layer prefers footprints that overlap the layer
+    below (multi-stud vertical clutch).
+    """
     by_layer: dict[int, set[tuple[int, int]]] = {}
     for v in voxels:
         by_layer.setdefault(v.iy, set()).add((v.ix, v.iz))
 
     out: list[Placement] = []
+    prev: set[tuple[int, int]] | None = None
     for iy in sorted(by_layer):
-        out.extend(consolidate_layer(by_layer[iy], iy, color, stagger=stagger))
+        layer = by_layer[iy]
+        out.extend(
+            consolidate_layer(
+                layer,
+                iy,
+                color,
+                stagger=stagger,
+                below_cells=prev if bond else None,
+                bond=bond,
+            )
+        )
+        prev = layer
     return out
 
 

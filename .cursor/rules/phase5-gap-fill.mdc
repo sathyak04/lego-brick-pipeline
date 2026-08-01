@@ -1,0 +1,15 @@
+---
+description: Phase 5 reconnect/collision gap-fill conventions
+globs: phase5/**/*.py
+alwaysApply: false
+---
+
+# Phase 5 gap-fill
+
+When editing reconnect / collision:
+
+1. Prefer **one named gap**: vsec completeness, same-layer under/span plates, strip preserving bridges, or air-column/nuke thrash — not all at once.
+2. Under-plate origin must be flush (`_brick_bottom_y`) — never embed plates inside brick AABB.
+3. Strip must not delete plates required for single-section connectivity.
+4. After changes, run `python -m phase5.demo_sphere` (locked diameter 16). Must exit 0 with 1 section / 0 collisions.
+5. Do not bump `BASELINE_DIAMETER_STUDS` in the same PR/session as a speculative reconnect rewrite.

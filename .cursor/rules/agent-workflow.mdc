@@ -1,0 +1,38 @@
+---
+description: Agent workflow for hollow sphere clutch/collision pipeline
+alwaysApply: true
+---
+
+# Lego pipeline — agent workflow
+
+## Goals
+
+Green only when: **1 clutch section**, **0 AABB collisions**, **hollow**. Tip-over is deferred.
+
+Soft (not a gate): clutch `weak_edges` / `mean_overlap` from `connectivity.clutch_strength` — improve in a separate session on already-PASS models; never solid-fill to chase it.
+
+## One writer
+
+- At most **one** agent edits reconnect/collision code at a time.
+- Optional second agent: explore or review only — no parallel edits to `phase5/plate_bridge.py`.
+
+## One gap per session
+
+- Name a single success metric (e.g. keep diameter 16 PASS; fix exhaust at 5 sections).
+- Do not mix visual polish, staple budget, and scale in one run.
+
+## Baseline lock
+
+- Default demo diameter is **16** (`BASELINE_DIAMETER_STUDS`).
+- Do not raise the default until that size stays PASS.
+- Scale 18/20+ only after current size is green; keep experiments off the locked default.
+
+## Visual polish / clutch strength
+
+- Separate chat/session only.
+- Only on already-PASS exports — do not change reconnect ordering in a polish session.
+
+## Verify
+
+Always end with `python -m phase5.demo_sphere` and report sections + collisions + parts + weak_edges/mean_overlap.
+Paste reconnect log snippets on FAIL.

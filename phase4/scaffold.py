@@ -103,6 +103,42 @@ def pin_columns_through_solid(
     return out
 
 
+def thicken_shell_inward(
+    solid: list[Voxel],
+    shell: list[Voxel],
+    *,
+    layers: int = 1,
+) -> list[Voxel]:
+    """Grow shell inward by `layers` (6-connected) while staying inside solid.
+
+    Keeps the model hollow: only cells that are solid and adjacent to the
+    current shell (toward the interior) are added — never the full cavity.
+    """
+    if layers <= 0:
+        return list(shell)
+    solid_set = _as_set(solid)
+    shell_set = _as_set(shell)
+    neigh = (
+        (1, 0, 0), (-1, 0, 0),
+        (0, 1, 0), (0, -1, 0),
+        (0, 0, 1), (0, 0, -1),
+    )
+    grown = set(shell_set)
+    frontier = set(shell_set)
+    for _ in range(layers):
+        nxt: set[tuple[int, int, int]] = set()
+        for ix, iy, iz in frontier:
+            for dx, dy, dz in neigh:
+                n = (ix + dx, iy + dy, iz + dz)
+                if n in solid_set and n not in grown:
+                    nxt.add(n)
+        grown |= nxt
+        frontier = nxt
+        if not frontier:
+            break
+    return [Voxel(ix, iy, iz) for ix, iy, iz in sorted(grown)]
+
+
 def shell_plus_scaffold(
     solid: list[Voxel],
     *,
