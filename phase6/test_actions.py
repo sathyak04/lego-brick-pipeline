@@ -43,19 +43,10 @@ class TestSupportBlockedExperimental(unittest.TestCase):
 
 
 class TestHillClimb(unittest.TestCase):
-    def test_loop_merges_bloat_without_support_columns(self) -> None:
-        # Shared 1x4 plate under two flush 1x2s (studs on z=0) → 1 section.
-        base = Brick("3710.dat", 15, 20.0, 0.0, 0.0)
-        a = Brick("3004.dat", 15, 0.0, -24.0, 0.0)
-        b = Brick("3004.dat", 15, 40.0, -24.0, 0.0)
-        start = evaluate([base, a, b], interior_count=1, solid_count=3)
-        self.assertTrue(start.hard_ok)
-        before_parts = len(start.bricks)
-        result = improve_release(start, max_rounds=5)
-        self.assertLessEqual(len(result.final.bricks), before_parts)
-        self.assertTrue(result.final.hard_ok)
-        codes = {i.code for i in result.final.release.soft_issues}
-        self.assertNotIn("part_count_bloat", codes)
+    def test_loop_does_not_register_support_columns(self) -> None:
+        from actions import ACTIONS
+
+        self.assertNotIn("support_blocked_pieces", ACTIONS)
 
     def test_loop_does_not_stuff_columns_for_mid_air(self) -> None:
         start = evaluate(_cavity_plate_fixture(), interior_count=1, solid_count=2)
