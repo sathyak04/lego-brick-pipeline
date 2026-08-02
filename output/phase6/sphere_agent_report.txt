@@ -1,0 +1,37 @@
+diameter=20.0
+delta=+6.2 accepted=8
+log=[('support_blocked_pieces', True, 91.61825726141079, 94.09053497942386, 4), ('support_blocked_pieces', True, 94.09053497942386, 97.28163265306122, 4), ('support_blocked_pieces', True, 97.28163265306122, 97.3979797979798, 5), ('support_blocked_pieces', True, 97.3979797979798, 97.66202783300199, 8), ('support_blocked_pieces', True, 97.66202783300199, 97.6986301369863, 8), ('support_blocked_pieces', True, 97.6986301369863, 97.76923076923076, 9), ('support_blocked_pieces', True, 97.76923076923076, 97.81954887218045, 12), ('support_blocked_pieces', True, 97.81954887218045, 97.85318291020975, 13), ('support_blocked_pieces', False, 97.85318291020975, 97.81866142298745, 16)]
+
+BEFORE
+VERDICT: NOT READY - 2 soft issue(s), score 91.6/100
+  components:
+    connectivity  1.00
+    collisions    1.00
+    balance       1.00
+    overhang      1.00
+    build_order   0.33
+    clutch        1.00
+    bloat         1.00
+    interlock     0.95
+  issues (highest impact first):
+    [soft] mid_air_pieces: 322 piece(s) need mid-air placement during assembly (-8.0 pts -> support_blocked_pieces)
+    [soft] shear_columns: 44 piece(s) in straight columns, 88% staggered joins (-0.4 pts -> stagger_seams)
+  not measured yet: micro_stress
+
+AFTER
+VERDICT: NOT READY - 4 soft issue(s), score 97.9/100
+  components:
+    connectivity  1.00
+    collisions    1.00
+    balance       1.00
+    overhang      1.00
+    build_order   0.89
+    clutch        1.00
+    bloat         0.99
+    interlock     0.92
+  issues (highest impact first):
+    [soft] mid_air_pieces: 62 piece(s) need mid-air placement during assembly (-1.4 pts -> support_blocked_pieces)
+    [soft] shear_columns: 90 piece(s) in straight columns, 83% staggered joins (-0.7 pts -> stagger_seams)
+    [soft] part_count_bloat: 7 part(s) removable by merging (1.3% of the set) (-0.1 pts -> merge_bloat)
+    [soft] weak_clutch: 328/653 one-stud joins, mean overlap 2.28 (-0.0 pts -> strengthen_clutch)
+  not measured yet: micro_stress

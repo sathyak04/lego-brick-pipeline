@@ -90,3 +90,10 @@ python -m phase5.demo_sphere
 ```
 
 Report: sections, collisions, part count, staples, weak_edges/mean_overlap. Paste reconnect log lines when FAIL (`exhaust`, `mst stuck`, `spine-nuke`).
+
+## Phase 6 (deterministic agent)
+
+- Demo: `python -m phase6.demo_agent` — hollow sphere → hill-climb → `output/phase6/sphere_agent.io`
+- Loop: `phase6/loop.improve_release` — score → try issue actions → keep if score↑ and hard gates hold
+- Implemented actions: `support_blocked_pieces`, `add_balance_base`
+- LLM layer still locked — expand the action registry before orchestration

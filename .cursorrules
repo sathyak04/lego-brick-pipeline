@@ -56,11 +56,17 @@ Every algorithm in Phases 4 and 5 must be built to enforce these strict commerci
 * **Cantilever & Overhang Check:** Detect unsupported overhangs that would collapse under gravity during physical assembly.
 * **Step-by-Step Buildability:** Validate that the model can be sliced horizontally into a logical, gravity-defying sequence of instruction steps.
 
-## Phase 6: The Autonomous Release Readiness Agent (LOCKED — DO NOT TOUCH YET)
-* Only after Phases 1–5 are complete will we build the AI Agent layer.
-* The Agent will take a user's text/image prompt, generate a 3D mesh, run it through our Phase 1–4 engine, and then **use Phase 5 as an automated feedback loop**—iteratively modifying the interior scaffolding, swapping pieces to reduce part counts, and widening bases to fix center-of-mass issues until the set achieves a 100% "Ready for Release" score.
+## Phase 6: The Autonomous Release Readiness Agent (CURRENT FOCUS)
+* Phase 5 validators + scorecard are the feedback surface.
+* Start with a **deterministic** hill-climber (`phase6/loop.py`): score →
+  `next_action` → apply fix → re-score → keep if improved, else revert.
+* First action: `support_blocked_pieces` (columns under mid-air pieces).
+* LLM orchestration comes later — do not jump to prompt/chat agents until
+  the fix-action registry proves it can raise release scores without
+  breaking hard gates (1 section / 0 collisions / hollow).
 
 ---
 
 # Immediate First Task
-Acknowledge this blueprint and our strict Release Quality Standards. Do not write any complex logic or AI code yet. Write a simple, clean script (in our chosen language) for **Phase 1, Step 1**: create a function that takes a hardcoded list of 2–3 LEGO bricks with their 3D coordinates, formats them into a valid `model.ldr` string, compresses it into a `.io` file, and saves it to disk so we can test opening it in BrickLink Studio.
+Phase 1–5 are complete. Continue Phase 6: expand the fix-action registry
+and prove the hill-climber improves suite scores without hard-gate regressions.
