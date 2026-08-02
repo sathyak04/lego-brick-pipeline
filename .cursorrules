@@ -60,7 +60,8 @@ Every algorithm in Phases 4 and 5 must be built to enforce these strict commerci
 * Phase 5 validators + scorecard are the feedback surface.
 * Start with a **deterministic** hill-climber (`phase6/loop.py`): score →
   `next_action` → apply fix → re-score → keep if improved, else revert.
-* First action: `support_blocked_pieces` (columns under mid-air pieces).
+* First actions: `support_blocked_pieces`, `add_balance_base`, `merge_bloat`,
+  `stagger_seams`, `strengthen_clutch`. Suite demo: `phase6.demo_suite_agent`.
 * LLM orchestration comes later — do not jump to prompt/chat agents until
   the fix-action registry proves it can raise release scores without
   breaking hard gates (1 section / 0 collisions / hollow).

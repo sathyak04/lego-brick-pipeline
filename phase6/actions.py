@@ -200,7 +200,263 @@ def widen_balance_base(
     return new_bricks, n
 
 
+def _merged_brick(a: Brick, b: Brick, part_id: str) -> Brick | None:
+    """Build a single part covering the combined XZ footprint of a and b."""
+    from bloat import _xz_aabb, _studs  # local helpers
+
+    ax0, ax1, az0, az1 = _xz_aabb(a)
+    bx0, bx1, bz0, bz1 = _xz_aabb(b)
+    x0, x1 = min(ax0, bx0), max(ax1, bx1)
+    z0, z1 = min(az0, bz0), max(az1, bz1)
+    w, d = _studs(x1 - x0), _studs(z1 - z0)
+    spec = get_part(part_id)
+    from catalog import IDENTITY, YAW_90
+
+    if spec.width == w and spec.depth == d:
+        rot = IDENTITY
+    elif spec.width == d and spec.depth == w:
+        rot = YAW_90
+    else:
+        return None
+    cx, cz = 0.5 * (x0 + x1), 0.5 * (z0 + z1)
+    return Brick(
+        part_id=part_id,
+        color=a.color,
+        x=cx,
+        y=a.y,
+        z=cz,
+        a=rot[0],
+        b=rot[1],
+        c=rot[2],
+        d=rot[3],
+        e=rot[4],
+        f=rot[5],
+        g=rot[6],
+        h=rot[7],
+        i=rot[8],
+    )
+
+
+def merge_bloat(
+    bricks: list[Brick],
+    *,
+    max_merges: int = 24,
+) -> tuple[list[Brick], int]:
+    """Replace adjacent same-layer pairs with one catalog part (cost bloat)."""
+    from bloat import check_bloat
+
+    report = check_bloat(bricks)
+    if report.lean:
+        return list(bricks), 0
+
+    start_sec = check_connectivity(bricks).section_count
+    remove: set[int] = set()
+    additions: list[Brick] = []
+    merges = 0
+    for pair in report.merge_pairs:
+        if merges >= max_merges:
+            break
+        if pair.a in remove or pair.b in remove:
+            continue
+        merged = _merged_brick(bricks[pair.a], bricks[pair.b], pair.replacement)
+        if merged is None:
+            continue
+        remove.add(pair.a)
+        remove.add(pair.b)
+        additions.append(merged)
+        merges += 1
+
+    if merges <= 0:
+        return list(bricks), 0
+
+    out = [b for i, b in enumerate(bricks) if i not in remove] + additions
+    if count_collisions(out) > 0:
+        return list(bricks), 0
+    if check_connectivity(out).section_count > start_sec:
+        return list(bricks), 0
+    return out, merges
+
+
+def stagger_seams(
+    bricks: list[Brick],
+    *,
+    max_shifts: int = 12,
+) -> tuple[list[Brick], int]:
+    """Shift fragile aligned-stack pieces by one stud to break shear columns."""
+    from interlock import check_interlock
+
+    report = check_interlock(bricks)
+    if report.interlocked or not report.fragile_ids:
+        return list(bricks), 0
+
+    start_sec = check_connectivity(bricks).section_count
+    start_fragile = len(report.fragile_ids)
+    out = list(bricks)
+    shifts = 0
+
+    for fi in list(report.fragile_ids):
+        if shifts >= max_shifts:
+            break
+        if fi >= len(out):
+            continue
+        brick = out[fi]
+        # Prefer shifting along the longer footprint axis.
+        spec = get_part(brick.part_id)
+        deltas = [(STUD, 0.0), (-STUD, 0.0), (0.0, STUD), (0.0, -STUD)]
+        if spec.depth > spec.width:
+            deltas = [(0.0, STUD), (0.0, -STUD), (STUD, 0.0), (-STUD, 0.0)]
+
+        best: Brick | None = None
+        for dx, dz in deltas:
+            trial_brick = Brick(
+                part_id=brick.part_id,
+                color=brick.color,
+                x=brick.x + dx,
+                y=brick.y,
+                z=brick.z + dz,
+                a=brick.a,
+                b=brick.b,
+                c=brick.c,
+                d=brick.d,
+                e=brick.e,
+                f=brick.f,
+                g=brick.g,
+                h=brick.h,
+                i=brick.i,
+            )
+            trial = list(out)
+            trial[fi] = trial_brick
+            if count_collisions(trial) > 0:
+                continue
+            if check_connectivity(trial).section_count > start_sec:
+                continue
+            after = check_interlock(trial)
+            if len(after.fragile_ids) >= start_fragile:
+                continue
+            # Must remain placeable enough — don't create new mid-air piles.
+            before_blocked = len(check_build_order(out).blocked_ids)
+            after_blocked = len(check_build_order(trial).blocked_ids)
+            if after_blocked > before_blocked + 2:
+                continue
+            best = trial_brick
+            start_fragile = len(after.fragile_ids)
+            break
+        if best is None:
+            continue
+        out[fi] = best
+        shifts += 1
+
+    return out, shifts
+
+
+def strengthen_clutch(
+    bricks: list[Brick],
+    *,
+    max_plates: int = 8,
+    color: int = 72,
+) -> tuple[list[Brick], int]:
+    """Lay 1x2 plates across adjacent same-layer studs that only clutch 1-wide.
+
+    Targets weak vertical joins indirectly: a plate spanning two neighbour
+    uppers bonds them and adds multi-stud clutch into the layer below when
+    both sit on the same support.
+    """
+    from connectivity import clutch_strength
+
+    conn = check_connectivity(bricks)
+    strength = clutch_strength(bricks, conn)
+    if strength.weak_edges <= 0:
+        return list(bricks), 0
+
+    start_sec = conn.section_count
+    world = CollisionWorld(bricks)
+    out = list(bricks)
+    added = 0
+
+    # Weak edge endpoints that are "above" in a vertical join.
+    weak_uppers: list[int] = []
+    for (i, j), ov in zip(conn.edges, strength.overlaps):
+        if ov != 1:
+            continue
+        bi, bj = bricks[i], bricks[j]
+        # Upper = smaller top Y (higher in air, +Y down)
+        upper = i if bi.y < bj.y else j
+        weak_uppers.append(upper)
+
+    # Pair nearby weak uppers on the same layer one stud apart.
+    seen: set[tuple[int, int]] = set()
+    for a_idx in weak_uppers:
+        if added >= max_plates:
+            break
+        a = out[a_idx]
+        for b_idx in weak_uppers:
+            if a_idx >= b_idx:
+                continue
+            key = (a_idx, b_idx)
+            if key in seen:
+                continue
+            seen.add(key)
+            b = out[b_idx]
+            if abs(a.y - b.y) > EPS_Y:
+                continue
+            dx = abs(a.x - b.x)
+            dz = abs(a.z - b.z)
+            # Exactly one stud apart on one axis, aligned on the other.
+            if abs(dx - STUD) <= 1.0 and abs(dz) <= 1.0:
+                cx, cz = 0.5 * (a.x + b.x), a.z
+                # Plate sits on top of both (top origin = their top)
+                plate = _axis_part("3023.dat", color, cx, a.y - PLATE_H, cz)
+                # 3023 is 1x2 along X by default — good for dx=STUD
+            elif abs(dz - STUD) <= 1.0 and abs(dx) <= 1.0:
+                cx, cz = a.x, 0.5 * (a.z + b.z)
+                from catalog import YAW_90
+
+                plate = Brick(
+                    part_id="3023.dat",
+                    color=color,
+                    x=cx,
+                    y=a.y - PLATE_H,
+                    z=cz,
+                    a=YAW_90[0],
+                    b=YAW_90[1],
+                    c=YAW_90[2],
+                    d=YAW_90[3],
+                    e=YAW_90[4],
+                    f=YAW_90[5],
+                    g=YAW_90[6],
+                    h=YAW_90[7],
+                    i=YAW_90[8],
+                )
+            else:
+                continue
+            if world.collides(plate):
+                continue
+            trial = out + [plate]
+            if count_collisions(trial) > 0:
+                continue
+            if check_connectivity(trial).section_count > start_sec:
+                continue
+            new_strength = clutch_strength(trial, check_connectivity(trial))
+            if new_strength.mean_overlap < strength.mean_overlap - 1e-6:
+                continue
+            if (
+                new_strength.weak_ratio >= strength.weak_ratio
+                and new_strength.mean_overlap <= strength.mean_overlap + 1e-6
+            ):
+                continue
+            world.add(plate)
+            out.append(plate)
+            added += 1
+            strength = new_strength
+            break
+
+    return out, added
+
+
 ACTIONS: dict[str, FixFn] = {
     "support_blocked_pieces": support_blocked_pieces,
     "add_balance_base": widen_balance_base,
+    "merge_bloat": merge_bloat,
+    "stagger_seams": stagger_seams,
+    "strengthen_clutch": strengthen_clutch,
 }

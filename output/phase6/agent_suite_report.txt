@@ -1,0 +1,4 @@
+Phase 6 agent suite
+sphere: 91.6->98.0 delta=+6.4 ready=False hard_ok=True accepted=10
+bunny: 95.1->96.9 delta=+1.8 ready=False hard_ok=True accepted=11
+teapot: 95.1->99.0 delta=+3.9 ready=False hard_ok=True accepted=7
