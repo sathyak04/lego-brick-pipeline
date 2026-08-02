@@ -454,9 +454,16 @@ def strengthen_clutch(
 
 
 ACTIONS: dict[str, FixFn] = {
-    "support_blocked_pieces": support_blocked_pieces,
+    # support_blocked_pieces is intentionally NOT registered.
+    # Dropping stud columns under every mid-air shell/cavity piece fills the
+    # hollow with junk poles — not how sets are built, and not a release fix.
     "add_balance_base": widen_balance_base,
     "merge_bloat": merge_bloat,
     "stagger_seams": stagger_seams,
     "strengthen_clutch": strengthen_clutch,
+}
+
+# Kept for experiments / unit tests only — not part of the release agent.
+EXPERIMENTAL_ACTIONS: dict[str, FixFn] = {
+    "support_blocked_pieces": support_blocked_pieces,
 }

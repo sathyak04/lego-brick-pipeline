@@ -1,4 +1,4 @@
-"""Phase 6 — support_blocked_pieces + hill-climb unit checks."""
+"""Phase 6 — support_blocked (experimental) + hill-climb unit checks."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "phase1"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "phase5"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from actions import support_blocked_pieces  # noqa: E402
+from actions import merge_bloat, support_blocked_pieces  # noqa: E402
 from build_order import check_build_order  # noqa: E402
 from connectivity import check_connectivity  # noqa: E402
 from export_io import Brick  # noqa: E402
@@ -19,51 +19,45 @@ from state import evaluate  # noqa: E402
 
 
 def _cavity_plate_fixture() -> list[Brick]:
-    """1 clutch section, but a floating cavity plate is mid-air for build order.
-
-    Stack A→B, then 1x2 C on B overhanging +X, with a 1x1 plate under the
-    overhang stud. Plate clutches to C (same section) but sits above ground.
-    """
+    """1 clutch section, but a floating cavity plate is mid-air for build order."""
     a = Brick("3005.dat", 15, 0.0, -24.0, 0.0)
     b = Brick("3005.dat", 15, 0.0, -48.0, 0.0)
-    c = Brick("3004.dat", 15, 10.0, -72.0, 0.0)  # 1x2 spans x=0 and x=20
-    plate = Brick("3024.dat", 72, 20.0, -48.0, 0.0)  # under overhang stud
+    c = Brick("3004.dat", 15, 10.0, -72.0, 0.0)
+    plate = Brick("3024.dat", 72, 20.0, -48.0, 0.0)
     return [a, b, c, plate]
 
 
-class TestSupportBlocked(unittest.TestCase):
+class TestSupportBlockedExperimental(unittest.TestCase):
+    """Column supports stay testable but are not part of the release agent."""
+
     def test_fixture_is_hard_ok_but_not_buildable(self) -> None:
         bricks = _cavity_plate_fixture()
         self.assertEqual(check_connectivity(bricks).section_count, 1)
         self.assertFalse(check_build_order(bricks).buildable)
 
-    def test_adds_column_under_cavity_plate(self) -> None:
+    def test_experimental_column_still_works(self) -> None:
         before = _cavity_plate_fixture()
         after, n = support_blocked_pieces(before, max_targets=2)
         self.assertGreater(n, 0)
-        self.assertEqual(check_connectivity(after).section_count, 1)
         self.assertTrue(check_build_order(after).buildable)
-
-    def test_noop_when_already_buildable(self) -> None:
-        bricks = [
-            Brick("3005.dat", 15, 0.0, -24.0, 0.0),
-            Brick("3005.dat", 15, 0.0, -48.0, 0.0),
-        ]
-        after, n = support_blocked_pieces(bricks)
-        self.assertEqual(n, 0)
-        self.assertEqual(len(after), len(bricks))
 
 
 class TestHillClimb(unittest.TestCase):
-    def test_loop_raises_score_on_cavity_plate(self) -> None:
-        start = evaluate(_cavity_plate_fixture(), interior_count=1, solid_count=2)
+    def test_loop_merges_bloat_without_support_columns(self) -> None:
+        a = Brick("3004.dat", 15, 0.0, -24.0, 0.0)
+        b = Brick("3004.dat", 15, 40.0, -24.0, 0.0)
+        start = evaluate([a, b], interior_count=1, solid_count=2)
         self.assertTrue(start.hard_ok)
-        self.assertFalse(start.release.release_ready)
-
         result = improve_release(start, max_rounds=5)
         self.assertGreater(result.accepted, 0)
-        self.assertGreater(result.final.score, start.score)
+        self.assertEqual(len(result.final.bricks), 1)
         self.assertTrue(result.final.hard_ok)
+
+    def test_loop_does_not_stuff_columns_for_mid_air(self) -> None:
+        start = evaluate(_cavity_plate_fixture(), interior_count=1, solid_count=2)
+        result = improve_release(start, max_rounds=5)
+        # May improve tip/clutch/etc., but must not grow a stud forest.
+        self.assertLessEqual(len(result.final.bricks), len(start.bricks) + 2)
 
 
 if __name__ == "__main__":

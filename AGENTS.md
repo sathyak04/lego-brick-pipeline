@@ -96,6 +96,9 @@ Report: sections, collisions, part count, staples, weak_edges/mean_overlap. Past
 - Single-shape: `python -m phase6.demo_agent` (sphere smoke test)
 - Full suite: `python -m phase6.demo_suite_agent` — sphere + bunny + teapot
 - Loop: `phase6/loop.improve_release` — score → try issue actions → keep if score↑ and hard gates hold
-- Actions: `support_blocked_pieces`, `add_balance_base`, `merge_bloat`, `stagger_seams`, `strengthen_clutch`
+- Actions: `add_balance_base`, `merge_bloat`, `stagger_seams`, `strengthen_clutch`
+- **Not used:** `support_blocked_pieces` (experimental only) — stuffing the hollow
+  with stud columns is not a real assembly fix; mid-air stays a soft report until
+  we have a proper instruction strategy
 - LLM layer still locked — expand/fix actions before orchestration
 - Exports: `output/phase6/{sphere,bunny,teapot}_agent.io`

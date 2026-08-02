@@ -55,7 +55,8 @@ def _candidate_actions(state: ModelState) -> list[str]:
         "collisions": "resolve_collisions",
         "tip_hazard": "add_balance_base",
         "unsupported_pieces": "support_unsupported",
-        "mid_air_pieces": "support_blocked_pieces",
+        # mid_air_pieces: no registered action — cavity/shell mid-air needs a
+        # real instruction strategy, not stud columns stuffing the hollow.
         "weak_clutch": "strengthen_clutch",
         "part_count_bloat": "merge_bloat",
         "shear_columns": "stagger_seams",
