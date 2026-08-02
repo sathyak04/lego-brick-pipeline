@@ -44,21 +44,14 @@ class TestSupportBlockedExperimental(unittest.TestCase):
 
 class TestHillClimb(unittest.TestCase):
     def test_loop_merges_bloat_without_support_columns(self) -> None:
-        # Two flush 1x2s on one ground plate so connectivity stays 1 section.
-        base = Brick("3020.dat", 15, 20.0, 0.0, 0.0)  # 2x4 plate under both
+        # Shared 1x4 plate under two flush 1x2s (studs on z=0) → 1 section.
+        base = Brick("3710.dat", 15, 20.0, 0.0, 0.0)
         a = Brick("3004.dat", 15, 0.0, -24.0, 0.0)
         b = Brick("3004.dat", 15, 40.0, -24.0, 0.0)
-        # Plate top at 0, bricks sit on it: brick bottom should meet plate top.
-        # Plate height 8, top-origin: if plate.y=-8, top=-8, bottom=0.
-        # Bricks at y=-24 have bottom=0 — they don't sit on plate top=-8.
-        # Put plate as ground: plate.y = 0 means top at 0, bottom at 8 (ground).
-        # Bricks with bottom at 0 sit ON plate. Good if plate.y=0... brick bottom
-        # = plate top = 0. brick.y = -24. Yes with base at y=0.
         start = evaluate([base, a, b], interior_count=1, solid_count=3)
         self.assertTrue(start.hard_ok)
         before_parts = len(start.bricks)
         result = improve_release(start, max_rounds=5)
-        # merge_bloat should fire if still flagged; either way no column forest.
         self.assertLessEqual(len(result.final.bricks), before_parts)
         self.assertTrue(result.final.hard_ok)
         codes = {i.code for i in result.final.release.soft_issues}
